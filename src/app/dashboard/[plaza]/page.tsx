@@ -45,7 +45,7 @@ export default function PlazaPage({ params }: { params: { plaza: string } }) {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-3xl font-bold font-headline tracking-tight">Grupo: {plazaName}</h1>
+        <h1 className="text-3xl font-bold font-headline tracking-tight">Plaza: {plazaName}</h1>
       </div>
       
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
