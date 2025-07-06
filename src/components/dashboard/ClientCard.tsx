@@ -9,7 +9,7 @@ import { Separator } from '@/components/ui/separator';
 
 export function ClientCard({ client, onEdit, onPay }: { client: Client, onEdit: (client: Client) => void, onPay: (client: Client) => void }) {
   return (
-    <Card className="flex flex-col rounded-xl shadow-md transition-shadow hover:shadow-lg">
+    <Card className="flex flex-col rounded-xl shadow-md transition-all duration-200 hover:shadow-lg hover:border-primary">
       <CardHeader className="pb-4">
         <div className="flex items-start justify-between gap-2">
           <CardTitle className="text-base font-bold uppercase leading-tight">{client.nombre}</CardTitle>

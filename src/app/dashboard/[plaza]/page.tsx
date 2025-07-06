@@ -39,7 +39,7 @@ export default function PlazaPage({ params }: { params: { plaza: string } }) {
     const isRegularUser = 'plazas' in currentUser;
 
     if (!isRegularUser) { // It's an Admin
-      return { canRegister: true, canImport: true, canExport: true, hasAccess: true };
+      return { canRegister: true, canImport: true, canExport: true, canExportHistory: true, hasAccess: true };
     }
     
     const user = currentUser as User;
@@ -168,8 +168,10 @@ export default function PlazaPage({ params }: { params: { plaza: string } }) {
           <StatCard 
               title="Deuda Pendiente" 
               value={`$${stats.totalDebt.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} 
-              icon={Wallet} 
-              valueClassName="text-destructive text-3xl"
+              icon={Wallet}
+              variant="destructive"
+              className="bg-gradient-to-br from-red-900 to-rose-500"
+              valueClassName="text-3xl"
           />
           <StatCard 
               title="Total de Clientes" 
