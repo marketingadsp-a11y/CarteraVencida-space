@@ -11,7 +11,7 @@ const spaceGrotesk = Space_Grotesk({
 });
 
 export const metadata: Metadata = {
-  title: "Planet - Cartera",
+  title: "Cartera",
   description: "Gestión de cartera vencida de clientes",
 };
 

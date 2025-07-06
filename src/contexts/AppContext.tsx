@@ -25,6 +25,8 @@ interface AppContextType {
   currentUser: Admin | User | null;
   login: (user: string, pass: string) => Promise<boolean>;
   logout: () => void;
+  appName: string;
+  setAppName: (name: string) => void;
   clients: Client[];
   setClients: React.Dispatch<React.SetStateAction<Client[]>>;
   addClient: (clientData: Omit<Client, 'id'>) => void;
@@ -50,6 +52,8 @@ export const AppContext = createContext<AppContextType>({
   currentUser: null,
   login: async () => false,
   logout: () => {},
+  appName: 'Planet',
+  setAppName: () => {},
   clients: [],
   setClients: () => {},
   addClient: () => {},
@@ -72,6 +76,7 @@ export const AppContext = createContext<AppContextType>({
 export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   const [currentUser, setCurrentUser] = useState<Admin | User | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [appName, setAppNameState] = useState<string>('Planet');
   const [clients, setClients] = useState<Client[]>([]);
   const [plazas, setPlazas] = useState<string[]>(INITIAL_PLAZAS);
   const [admins, setAdmins] = useState<Admin[]>(INITIAL_ADMINS);
@@ -84,10 +89,29 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       if (storedUser) {
         setCurrentUser(JSON.parse(storedUser));
       }
+      const storedAppName = localStorage.getItem('appName');
+      if (storedAppName) {
+        setAppNameState(storedAppName);
+      }
     } catch (error) {
       console.error("Could not access localStorage", error);
     } finally {
       setIsLoading(false);
+    }
+  }, []);
+  
+  useEffect(() => {
+    if (appName) {
+      document.title = `${appName} - Cartera`;
+    }
+  }, [appName]);
+
+  const setAppName = useCallback((name: string) => {
+    setAppNameState(name);
+    try {
+        localStorage.setItem('appName', name);
+    } catch (error) {
+        console.error("Could not access localStorage", error);
     }
   }, []);
 
@@ -269,6 +293,8 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     currentUser,
     login,
     logout,
+    appName,
+    setAppName,
     clients,
     setClients,
     addClient,
@@ -287,7 +313,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     updateUser,
     deleteUser,
   }), [
-    currentUser, isLoading, login, logout, clients, plazas, admins, users,
+    currentUser, isLoading, login, logout, appName, setAppName, clients, plazas, admins, users,
     addClient, addPlaza, updatePlaza, deletePlaza,
     addAdmin, updateAdmin, deleteAdmin, addUser, updateUser, deleteUser, updateClient, addPayment
   ]);

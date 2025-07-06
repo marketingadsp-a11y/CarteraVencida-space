@@ -31,7 +31,7 @@ const formSchema = z.object({
 });
 
 export function LoginForm() {
-  const { login } = useContext(AppContext);
+  const { login, appName } = useContext(AppContext);
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -63,7 +63,7 @@ export function LoginForm() {
         <div className="mx-auto bg-primary text-primary-foreground p-3 rounded-full mb-4">
             <Rocket className="h-8 w-8" />
         </div>
-        <CardTitle className="text-3xl font-headline">Planet - Cartera</CardTitle>
+        <CardTitle className="text-3xl font-headline">{appName} - Cartera</CardTitle>
         <CardDescription>Bienvenido. Ingrese sus credenciales.</CardDescription>
       </CardHeader>
       <CardContent>

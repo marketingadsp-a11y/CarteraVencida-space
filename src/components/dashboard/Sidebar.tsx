@@ -11,7 +11,7 @@ import { Separator } from "../ui/separator";
 
 export default function Sidebar() {
   const pathname = usePathname();
-  const { plazas, currentUser } = useContext(AppContext);
+  const { plazas, currentUser, appName } = useContext(AppContext);
 
   const isUserAdmin = currentUser && 'username' in currentUser && !('plazas' in currentUser);
 
@@ -25,9 +25,10 @@ export default function Sidebar() {
   ];
 
   const managementLinks = [
-    { href: "/dashboard/management/plazas", label: "Gestionar Plazas", icon: Settings },
+    { href: "/dashboard/management/plazas", label: "Gestionar Plazas", icon: Building },
     { href: "/dashboard/management/admins", label: "Gestionar Admins", icon: ShieldCheck },
     { href: "/dashboard/management/users", label: "Gestionar Usuarios", icon: UsersRound },
+    { href: "/dashboard/management/settings", label: "Ajustes", icon: Settings },
   ];
 
   return (
@@ -35,7 +36,7 @@ export default function Sidebar() {
       <div className="flex h-16 items-center border-b px-6">
         <Link href="/dashboard" className="flex items-center gap-2 font-semibold font-headline text-lg">
           <Rocket className="h-7 w-7 text-accent" />
-          <span>Planet - Cartera</span>
+          <span>{appName} - Cartera</span>
         </Link>
       </div>
       <ScrollArea className="flex-1">
