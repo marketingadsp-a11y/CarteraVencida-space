@@ -82,7 +82,6 @@ export function ClientFormDialog({ isOpen, onOpenChange, plazaName, editingClien
                     ...values,
                     plaza: plazaName,
                     fecha: currentDate,
-                    recuperado: false,
                 });
                 toast({
                     title: "Cliente Registrado",

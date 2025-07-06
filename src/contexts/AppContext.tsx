@@ -30,7 +30,6 @@ interface AppContextType {
   addClient: (clientData: Omit<Client, 'id'>) => void;
   updateClient: (id: number, clientData: Partial<Omit<Client, 'id'>>) => void;
   addPayment: (clientId: number, monto: number) => void;
-  toggleClientRecovered: (id: number) => void;
   plazas: string[];
   addPlaza: (plazaName: string) => boolean;
   updatePlaza: (oldName: string, newName: string) => boolean;
@@ -56,7 +55,6 @@ export const AppContext = createContext<AppContextType>({
   addClient: () => {},
   updateClient: () => {},
   addPayment: () => {},
-  toggleClientRecovered: () => {},
   plazas: [],
   addPlaza: () => false,
   updatePlaza: () => false,
@@ -126,14 +124,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     }
     router.push('/');
   }, [router]);
-
-  const toggleClientRecovered = useCallback((id: number) => {
-    setClients(prevClients => 
-      prevClients.map(client => 
-        client.id === id ? { ...client, recuperado: !client.recuperado } : client
-      )
-    );
-  }, []);
   
   const addClient = useCallback((clientData: Omit<Client, 'id'>) => {
     setClients(prev => {
@@ -141,7 +131,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         const newClient: Client = {
           ...clientData,
           id: nextId,
-          recuperado: clientData.recuperado ?? false,
+          recuperado: clientData.adeudo <= 0,
           historialPagos: [],
         };
         return [...prev, newClient].sort((a, b) => a.nombre.localeCompare(b.nombre));
@@ -284,7 +274,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     addClient,
     updateClient,
     addPayment,
-    toggleClientRecovered,
     plazas,
     addPlaza,
     updatePlaza,
@@ -299,7 +288,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     deleteUser,
   }), [
     currentUser, isLoading, login, logout, clients, plazas, admins, users,
-    addClient, toggleClientRecovered, addPlaza, updatePlaza, deletePlaza,
+    addClient, addPlaza, updatePlaza, deletePlaza,
     addAdmin, updateAdmin, deleteAdmin, addUser, updateUser, deleteUser, updateClient, addPayment
   ]);
 
