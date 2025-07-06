@@ -13,14 +13,3 @@ export type Client = {
   adeudo: number;
   recuperado?: boolean;
 };
-
-export const PLAZAS = [
-  "AUTLAN PREPA",
-  "CREDIMEX",
-  "UNION DE TULA",
-  "TECOLOTLAN",
-  "OFICINA CENTRO",
-  "RUTA AARON",
-] as const;
-
-export type Plaza = typeof PLAZAS[number];

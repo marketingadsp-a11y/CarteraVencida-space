@@ -17,22 +17,25 @@ import {
   SheetContent,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { Menu, CircleUser, Rocket, Home, Building, LogOut } from "lucide-react";
-import { PLAZAS } from "@/lib/constants";
+import { Menu, CircleUser, Rocket, Home, Building, LogOut, Settings } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 export default function Header() {
-  const { logout } = useContext(AppContext);
+  const { logout, plazas } = useContext(AppContext);
   const pathname = usePathname();
 
   const navLinks = [
     { href: "/dashboard", label: "Resumen", icon: Home },
-    ...PLAZAS.map((plaza) => ({
+    ...plazas.map((plaza) => ({
       href: `/dashboard/${encodeURIComponent(plaza)}`,
       label: plaza,
       icon: Building,
     })),
+  ];
+  
+  const managementLinks = [
+    { href: "/dashboard/management/plazas", label: "Gestionar Plazas", icon: Settings }
   ];
 
   return (
@@ -45,28 +48,49 @@ export default function Header() {
               <span className="sr-only">Toggle navigation menu</span>
             </Button>
           </SheetTrigger>
-          <SheetContent side="left">
+          <SheetContent side="left" className="p-0">
              <div className="flex h-16 items-center border-b px-6 mb-4">
                 <Link href="/dashboard" className="flex items-center gap-2 font-semibold font-headline text-lg">
                     <Rocket className="h-7 w-7 text-accent" />
                     <span>Planet</span>
                 </Link>
             </div>
-            <nav className="grid gap-2 text-lg font-medium">
-                {navLinks.map(({ href, label, icon: Icon }) => {
-                    const isActive = pathname === href || pathname.startsWith(href) && href !== "/dashboard";
-                    return (
-                        <Link
-                            key={href}
-                            href={href}
-                            className={cn("flex items-center gap-4 rounded-xl px-3 py-2 text-muted-foreground hover:text-foreground", isActive && "bg-muted text-foreground")}
-                        >
-                            <Icon className="h-5 w-5" />
-                            {label}
-                        </Link>
-                    )
+            <div className="p-4">
+              <p className="px-3 py-2 text-xs font-semibold text-muted-foreground tracking-wider">CARTERA</p>
+              <nav className="grid gap-2 text-lg font-medium">
+                  {navLinks.map(({ href, label, icon: Icon }) => {
+                      const isActive = pathname === href || pathname.startsWith(href) && href !== "/dashboard";
+                      return (
+                          <Link
+                              key={href}
+                              href={href}
+                              className={cn("flex items-center gap-4 rounded-xl px-3 py-2 text-muted-foreground hover:text-foreground", isActive && "bg-muted text-foreground")}
+                          >
+                              <Icon className="h-5 w-5" />
+                              {label}
+                          </Link>
+                      )
+                  })}
+              </nav>
+            </div>
+            <div className="p-4 pt-0">
+              <p className="px-3 py-2 text-xs font-semibold text-muted-foreground tracking-wider">GESTIÓN</p>
+              <nav className="grid gap-2 text-lg font-medium">
+                {managementLinks.map(({ href, label, icon: Icon }) => {
+                  const isActive = pathname.startsWith(href);
+                  return (
+                    <Link
+                      key={href}
+                      href={href}
+                      className={cn("flex items-center gap-4 rounded-xl px-3 py-2 text-muted-foreground hover:text-foreground", isActive && "bg-muted text-foreground")}
+                    >
+                      <Icon className="h-5 w-5" />
+                      {label}
+                    </Link>
+                  )
                 })}
-            </nav>
+              </nav>
+            </div>
           </SheetContent>
         </Sheet>
       </nav>

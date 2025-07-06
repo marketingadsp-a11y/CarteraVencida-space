@@ -9,10 +9,9 @@ import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter }
 import { Button } from '@/components/ui/button';
 import { Progress } from "@/components/ui/progress";
 import { DollarSign, Users, UserCheck, Percent, ArrowRight, Building } from 'lucide-react';
-import { PLAZAS, Plaza } from '@/lib/constants';
 
 export default function Dashboard() {
-  const { clients } = useContext(AppContext);
+  const { clients, plazas } = useContext(AppContext);
 
   const stats = useMemo(() => {
     const totalClients = clients.length;
@@ -24,7 +23,7 @@ export default function Dashboard() {
   }, [clients]);
 
   const plazaStats = useMemo(() => {
-    return PLAZAS.map(plaza => {
+    return plazas.map(plaza => {
       const plazaClients = clients.filter(c => c.plaza === plaza);
       const pendingDebt = plazaClients.reduce((acc, client) => acc + client.adeudo, 0);
       const totalClientsInPlaza = plazaClients.length;
@@ -37,7 +36,7 @@ export default function Dashboard() {
         recoveryRate
       };
     });
-  }, [clients]);
+  }, [clients, plazas]);
   
   return (
     <div className="flex flex-col gap-8">

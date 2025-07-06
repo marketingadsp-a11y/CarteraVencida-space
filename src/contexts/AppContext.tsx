@@ -4,6 +4,15 @@ import React, { createContext, useState, useEffect, useCallback, useMemo } from 
 import { useRouter } from 'next/navigation';
 import { Client } from '@/lib/constants';
 
+const INITIAL_PLAZAS = [
+  "AUTLAN PREPA",
+  "CREDIMEX",
+  "UNION DE TULA",
+  "TECOLOTLAN",
+  "OFICINA CENTRO",
+  "RUTA AARON",
+];
+
 interface AppContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
@@ -12,6 +21,10 @@ interface AppContextType {
   clients: Client[];
   setClients: React.Dispatch<React.SetStateAction<Client[]>>;
   toggleClientRecovered: (id: number) => void;
+  plazas: string[];
+  addPlaza: (plazaName: string) => boolean;
+  updatePlaza: (oldName: string, newName: string) => boolean;
+  deletePlaza: (plazaName: string) => void;
 }
 
 export const AppContext = createContext<AppContextType>({
@@ -22,12 +35,17 @@ export const AppContext = createContext<AppContextType>({
   clients: [],
   setClients: () => {},
   toggleClientRecovered: () => {},
+  plazas: [],
+  addPlaza: () => false,
+  updatePlaza: () => false,
+  deletePlaza: () => {},
 });
 
 export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [clients, setClients] = useState<Client[]>([]);
+  const [plazas, setPlazas] = useState<string[]>(INITIAL_PLAZAS);
   const router = useRouter();
 
   useEffect(() => {
@@ -75,6 +93,28 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     );
   };
   
+  const addPlaza = (plazaName: string) => {
+    if (plazas.some(p => p.toLowerCase() === plazaName.toLowerCase())) {
+        return false; // Already exists
+    }
+    setPlazas(prev => [...prev, plazaName].sort());
+    return true;
+  };
+
+  const updatePlaza = (oldName: string, newName: string) => {
+    if (plazas.some(p => p.toLowerCase() === newName.toLowerCase() && p.toLowerCase() !== oldName.toLowerCase())) {
+        return false; // New name already exists
+    }
+    setPlazas(prev => prev.map(p => p === oldName ? newName : p).sort());
+    // Also update clients associated with this plaza
+    setClients(prevClients => prevClients.map(c => c.plaza === oldName ? { ...c, plaza: newName } : c));
+    return true;
+  }
+
+  const deletePlaza = (plazaName: string) => {
+    setPlazas(prev => prev.filter(p => p !== plazaName));
+  }
+
   const value = useMemo(() => ({
     isAuthenticated,
     isLoading,
@@ -82,8 +122,12 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     logout,
     clients,
     setClients,
-    toggleClientRecovered
-  }), [isAuthenticated, isLoading, login, logout, clients]);
+    toggleClientRecovered,
+    plazas,
+    addPlaza,
+    updatePlaza,
+    deletePlaza
+  }), [isAuthenticated, isLoading, login, logout, clients, plazas]);
 
   return (
     <AppContext.Provider value={value}>
