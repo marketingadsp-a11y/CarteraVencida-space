@@ -13,16 +13,17 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { PlusCircle, Edit, Trash2 } from "lucide-react";
+import { PlusCircle, Edit, Trash2, Loader2 } from "lucide-react";
 
 const plazaSchema = z.object({
   name: z.string().min(3, { message: "El nombre debe tener al menos 3 caracteres." }),
 });
 
 export default function PlazasManagementPage() {
-  const { plazas, clients, addPlaza, updatePlaza, deletePlaza } = useContext(AppContext);
+  const { plazas, addPlaza, updatePlaza, deletePlaza } = useContext(AppContext);
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingPlaza, setEditingPlaza] = useState<string | null>(null);
 
   const form = useForm<z.infer<typeof plazaSchema>>({
@@ -42,41 +43,46 @@ export default function PlazasManagementPage() {
     setIsDialogOpen(true);
   };
 
-  const handleDelete = (plazaName: string) => {
-    if (clients.some(c => c.plaza === plazaName)) {
+  const handleDelete = async (plazaName: string) => {
+    const success = await deletePlaza(plazaName);
+    if (success) {
+      toast({
+        title: "Plaza eliminada",
+        description: `La plaza "${plazaName}" ha sido eliminada.`,
+      });
+    } else {
       toast({
         variant: "destructive",
         title: "Error al eliminar",
         description: "No se puede eliminar una plaza que tiene clientes asignados.",
       });
-      return;
     }
-    deletePlaza(plazaName);
-    toast({
-      title: "Plaza eliminada",
-      description: `La plaza "${plazaName}" ha sido eliminada.`,
-    });
   };
 
-  function onSubmit(values: z.infer<typeof plazaSchema>) {
+  async function onSubmit(values: z.infer<typeof plazaSchema>) {
+    setIsSubmitting(true);
     let success = false;
-    if (editingPlaza) {
-      success = updatePlaza(editingPlaza, values.name);
-    } else {
-      success = addPlaza(values.name);
-    }
+    try {
+      if (editingPlaza) {
+        success = await updatePlaza(editingPlaza, values.name);
+      } else {
+        success = await addPlaza(values.name);
+      }
 
-    if (success) {
-      toast({
-        title: editingPlaza ? "Plaza actualizada" : "Plaza creada",
-        description: `La plaza "${values.name}" ha sido guardada.`,
-      });
-      setIsDialogOpen(false);
-    } else {
-      form.setError("name", {
-        type: "manual",
-        message: "Ya existe una plaza con este nombre.",
-      });
+      if (success) {
+        toast({
+          title: editingPlaza ? "Plaza actualizada" : "Plaza creada",
+          description: `La plaza "${values.name}" ha sido guardada.`,
+        });
+        setIsDialogOpen(false);
+      } else {
+        form.setError("name", {
+          type: "manual",
+          message: "Ya existe una plaza con este nombre.",
+        });
+      }
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
@@ -184,7 +190,10 @@ export default function PlazasManagementPage() {
               />
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>Cancelar</Button>
-                <Button type="submit">Guardar Cambios</Button>
+                <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Guardar Cambios
+                </Button>
               </DialogFooter>
             </form>
           </Form>

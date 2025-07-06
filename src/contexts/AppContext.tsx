@@ -2,22 +2,23 @@
 
 import React, { createContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { Client, Admin, User, UserPlazaAccess, Payment } from '@/lib/constants';
+import { Client, Admin, User, Payment } from '@/lib/constants';
+import { db } from '@/lib/firebase';
+import {
+  collection,
+  onSnapshot,
+  doc,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  query,
+  where,
+  getDocs,
+  writeBatch,
+  getDoc,
+  setDoc,
+} from 'firebase/firestore';
 
-const INITIAL_PLAZAS = [
-  "AUTLAN PREPA",
-  "CREDIMEX",
-  "UNION DE TULA",
-  "TECOLOTLAN",
-  "OFICINA CENTRO",
-  "RUTA AARON",
-];
-
-const INITIAL_ADMINS: Admin[] = [
-  { id: 1, username: 'Cristobal', password: '0120' },
-];
-
-const INITIAL_USERS: User[] = [];
 
 interface AppContextType {
   isAuthenticated: boolean;
@@ -26,25 +27,25 @@ interface AppContextType {
   login: (user: string, pass: string) => Promise<boolean>;
   logout: () => void;
   appName: string;
-  setAppName: (name: string) => void;
+  setAppName: (name: string) => Promise<void>;
   clients: Client[];
-  setClients: React.Dispatch<React.SetStateAction<Client[]>>;
-  addClient: (clientData: Omit<Client, 'id'>) => void;
-  updateClient: (id: number, clientData: Partial<Omit<Client, 'id'>>) => void;
-  addPayment: (clientId: number, monto: number) => void;
+  setClients: (clients: Client[], plazaName: string, mode: 'add' | 'replace') => Promise<void>;
+  addClient: (clientData: Omit<Client, 'id' | 'recuperado' | 'historialPagos'>) => Promise<void>;
+  updateClient: (id: string, clientData: Partial<Omit<Client, 'id'>>) => Promise<void>;
+  addPayment: (clientId: string, monto: number) => Promise<void>;
   plazas: string[];
   userPlazas: string[];
-  addPlaza: (plazaName: string) => boolean;
-  updatePlaza: (oldName: string, newName: string) => boolean;
-  deletePlaza: (plazaName: string) => void;
+  addPlaza: (plazaName: string) => Promise<boolean>;
+  updatePlaza: (oldName: string, newName: string) => Promise<boolean>;
+  deletePlaza: (plazaName: string) => Promise<boolean>;
   admins: Admin[];
-  addAdmin: (adminData: Omit<Admin, 'id' | 'password'> & { password?: string }) => boolean;
-  updateAdmin: (id: number, adminData: Omit<Admin, 'id' | 'password'> & { password?: string }) => boolean;
-  deleteAdmin: (id: number) => boolean;
+  addAdmin: (adminData: Omit<Admin, 'id' | 'password'> & { password?: string }) => Promise<boolean>;
+  updateAdmin: (id: string, adminData: Omit<Admin, 'id' | 'password'> & { password?: string }) => Promise<boolean>;
+  deleteAdmin: (id: string) => Promise<boolean>;
   users: User[];
-  addUser: (userData: Omit<User, 'id'>) => boolean;
-  updateUser: (id: number, userData: Omit<User, 'id' | 'password'> & { password?: string }) => boolean;
-  deleteUser: (id: number) => void;
+  addUser: (userData: Omit<User, 'id'>) => Promise<boolean>;
+  updateUser: (id: string, userData: Omit<User, 'id' | 'password'> & { password?: string }) => Promise<boolean>;
+  deleteUser: (id: string) => Promise<void>;
 }
 
 export const AppContext = createContext<AppContextType>({
@@ -54,35 +55,35 @@ export const AppContext = createContext<AppContextType>({
   login: async () => false,
   logout: () => {},
   appName: 'Planet',
-  setAppName: () => {},
+  setAppName: async () => {},
   clients: [],
-  setClients: () => {},
-  addClient: () => {},
-  updateClient: () => {},
-  addPayment: () => {},
+  setClients: async () => {},
+  addClient: async () => {},
+  updateClient: async () => {},
+  addPayment: async () => {},
   plazas: [],
   userPlazas: [],
-  addPlaza: () => false,
-  updatePlaza: () => false,
-  deletePlaza: () => {},
+  addPlaza: async () => false,
+  updatePlaza: async () => false,
+  deletePlaza: async () => false,
   admins: [],
-  addAdmin: () => false,
-  updateAdmin: () => false,
-  deleteAdmin: () => false,
+  addAdmin: async () => false,
+  updateAdmin: async () => false,
+  deleteAdmin: async () => false,
   users: [],
-  addUser: () => false,
-  updateUser: () => false,
-  deleteUser: () => {},
+  addUser: async () => false,
+  updateUser: async () => false,
+  deleteUser: async () => {},
 });
 
 export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   const [currentUser, setCurrentUser] = useState<Admin | User | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [appName, setAppNameState] = useState<string>('Planet');
-  const [clients, setClients] = useState<Client[]>([]);
-  const [plazas, setPlazas] = useState<string[]>(INITIAL_PLAZAS);
-  const [admins, setAdmins] = useState<Admin[]>(INITIAL_ADMINS);
-  const [users, setUsers] = useState<User[]>(INITIAL_USERS);
+  const [isLoading, setIsLoading] = useState(true);
+  const [appName, setAppNameState] = useState('Planet');
+  const [clients, setClientsState] = useState<Client[]>([]);
+  const [plazas, setPlazas] = useState<string[]>([]);
+  const [admins, setAdmins] = useState<Admin[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const router = useRouter();
 
   useEffect(() => {
@@ -91,217 +92,264 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       if (storedUser) {
         setCurrentUser(JSON.parse(storedUser));
       }
-      const storedAppName = localStorage.getItem('appName');
-      if (storedAppName) {
-        setAppNameState(storedAppName);
-      }
     } catch (error) {
       console.error("Could not access localStorage", error);
-    } finally {
-      setIsLoading(false);
     }
+
+    const unsubscribes = [
+      onSnapshot(doc(db, 'settings', 'appName'), (doc) => {
+        if (doc.exists() && doc.data().name) {
+          setAppNameState(doc.data().name);
+        }
+      }),
+      onSnapshot(collection(db, 'admins'), (snapshot) => {
+        const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Admin));
+        setAdmins(data);
+      }),
+      onSnapshot(collection(db, 'users'), (snapshot) => {
+        const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as User));
+        setUsers(data);
+      }),
+      onSnapshot(collection(db, 'plazas'), (snapshot) => {
+        const data = snapshot.docs.map(doc => doc.data().name as string).sort();
+        setPlazas(data);
+      }),
+      onSnapshot(collection(db, 'clients'), (snapshot) => {
+        const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Client));
+        setClientsState(data.sort((a, b) => a.nombre.localeCompare(b.nombre)));
+      }),
+    ];
+
+    const checkAndSeedData = async () => {
+        const settingsSnap = await getDoc(doc(db, 'settings', 'appName'));
+        if (!settingsSnap.exists()) {
+             await setDoc(doc(db, 'settings', 'appName'), { name: 'Planet' });
+        }
+        
+        const adminsSnapshot = await getDocs(collection(db, 'admins'));
+        if (adminsSnapshot.empty) {
+            console.log('Seeding initial admin...');
+            await addDoc(collection(db, 'admins'), { username: 'Cristobal', password: '0120' });
+        }
+
+        const plazasSnapshot = await getDocs(collection(db, 'plazas'));
+        if (plazasSnapshot.empty) {
+            console.log('Seeding initial plazas...');
+            const batch = writeBatch(db);
+            const initialPlazas = ["AUTLAN PREPA", "CREDIMEX", "UNION DE TULA", "TECOLOTLAN", "OFICINA CENTRO", "RUTA AARON"];
+            initialPlazas.forEach(plazaName => {
+                const plazaRef = doc(collection(db, 'plazas'));
+                batch.set(plazaRef, { name: plazaName });
+            });
+            await batch.commit();
+        }
+    };
+
+    checkAndSeedData().finally(() => setIsLoading(false));
+    
+    return () => unsubscribes.forEach(unsub => unsub());
   }, []);
-  
+
   useEffect(() => {
-    if (appName) {
-      document.title = `${appName} - Cartera`;
-    }
+    if (appName) document.title = `${appName} - Cartera`;
   }, [appName]);
 
-  const setAppName = useCallback((name: string) => {
-    setAppNameState(name);
-    try {
-        localStorage.setItem('appName', name);
-    } catch (error) {
-        console.error("Could not access localStorage", error);
-    }
+  const setAppName = useCallback(async (name: string) => {
+    await setDoc(doc(db, 'settings', 'appName'), { name });
   }, []);
 
   const login = useCallback(async (user: string, pass: string): Promise<boolean> => {
-    const admin = admins.find(a => a.username === user && a.password === pass);
-    if (admin) {
-        const adminToStore = { ...admin };
-        delete adminToStore.password;
-        setCurrentUser(adminToStore);
-        try { localStorage.setItem('currentUser', JSON.stringify(adminToStore)); } catch (e) { console.error(e); }
-        router.push('/dashboard');
-        return true;
-    }
-    
-    const regularUser = users.find(u => u.username === user && u.password === pass);
-    if (regularUser) {
-        const userToStore = { ...regularUser };
-        delete userToStore.password;
-        setCurrentUser(userToStore);
-        try { localStorage.setItem('currentUser', JSON.stringify(userToStore)); } catch (e) { console.error(e); }
-        router.push('/dashboard');
-        return true;
+    const adminQuery = query(collection(db, 'admins'), where('username', '==', user), where('password', '==', pass));
+    const adminSnapshot = await getDocs(adminQuery);
+    if (!adminSnapshot.empty) {
+      const adminDoc = adminSnapshot.docs[0];
+      const adminData = { ...adminDoc.data(), id: adminDoc.id } as Admin;
+      delete adminData.password;
+      setCurrentUser(adminData);
+      localStorage.setItem('currentUser', JSON.stringify(adminData));
+      router.push('/dashboard');
+      return true;
     }
 
+    const userQuery = query(collection(db, 'users'), where('username', '==', user), where('password', '==', pass));
+    const userSnapshot = await getDocs(userQuery);
+    if (!userSnapshot.empty) {
+      const userDoc = userSnapshot.docs[0];
+      const userData = { ...userDoc.data(), id: userDoc.id } as User;
+      delete userData.password;
+      setCurrentUser(userData);
+      localStorage.setItem('currentUser', JSON.stringify(userData));
+      router.push('/dashboard');
+      return true;
+    }
     return false;
-  }, [router, admins, users]);
+  }, [router]);
 
   const logout = useCallback(() => {
     setCurrentUser(null);
-    try {
-      localStorage.removeItem('currentUser');
-    } catch (error) {
-        console.error("Could not access localStorage", error);
-    }
+    localStorage.removeItem('currentUser');
     router.push('/');
   }, [router]);
-  
-  const addClient = useCallback((clientData: Omit<Client, 'id'>) => {
-    setClients(prev => {
-        const nextId = prev.length > 0 ? Math.max(...prev.map(c => c.id)) + 1 : 1;
-        const newClient: Client = {
-          ...clientData,
-          id: nextId,
-          recuperado: clientData.adeudo <= 0,
-          historialPagos: [],
-        };
-        return [...prev, newClient].sort((a, b) => a.nombre.localeCompare(b.nombre));
+
+  const addClient = useCallback(async (clientData: Omit<Client, 'id' | 'recuperado' | 'historialPagos'>) => {
+    await addDoc(collection(db, 'clients'), {
+      ...clientData,
+      recuperado: clientData.adeudo <= 0,
+      historialPagos: [],
     });
   }, []);
-  
-  const updateClient = useCallback((id: number, clientData: Partial<Omit<Client, 'id'>>) => {
-    setClients(prev =>
-      prev.map(client =>
-        client.id === id
-          ? { ...client, ...clientData, recuperado: clientData.adeudo !== undefined ? clientData.adeudo <= 0 : client.recuperado }
-          : client
-      )
-    );
+
+  const setClients = useCallback(async (importedClients: Client[], plazaName: string, mode: 'add' | 'replace') => {
+    const batch = writeBatch(db);
+    
+    if (mode === 'replace') {
+      const q = query(collection(db, 'clients'), where('plaza', '==', plazaName));
+      const snapshot = await getDocs(q);
+      snapshot.forEach(doc => batch.delete(doc.ref));
+    }
+
+    importedClients.forEach(client => {
+      const clientRef = doc(collection(db, 'clients'));
+      const newClientData = { ...client };
+      delete (newClientData as any).id;
+      batch.set(clientRef, newClientData);
+    });
+
+    await batch.commit();
   }, []);
 
-  const addPayment = useCallback((clientId: number, monto: number) => {
-    setClients(prev =>
-      prev.map(client => {
-        if (client.id === clientId) {
-          const saldoAnterior = client.adeudo;
-          const saldoNuevo = Math.max(0, saldoAnterior - monto);
-          const newPayment: Payment = {
-            fecha: new Date().toLocaleDateString('es-GB'),
-            monto,
-            saldoAnterior,
-            saldoNuevo,
-          };
-          const historialPagos = [...(client.historialPagos || []), newPayment];
-          return {
-            ...client,
-            adeudo: saldoNuevo,
-            recuperado: saldoNuevo <= 0,
-            historialPagos,
-          };
-        }
-        return client;
-      })
-    );
+
+  const updateClient = useCallback(async (id: string, clientData: Partial<Omit<Client, 'id'>>) => {
+    const clientRef = doc(db, 'clients', id);
+    const updatedData: Partial<Client> = { ...clientData };
+    if (clientData.adeudo !== undefined) {
+      updatedData.recuperado = clientData.adeudo <= 0;
+    }
+    await updateDoc(clientRef, updatedData);
   }, []);
 
-  const addPlaza = useCallback((plazaName: string) => {
-    if (plazas.some(p => p.toLowerCase() === plazaName.toLowerCase())) {
-        return false;
+  const addPayment = useCallback(async (clientId: string, monto: number) => {
+    const clientRef = doc(db, 'clients', clientId);
+    const clientSnap = await getDoc(clientRef);
+    if (clientSnap.exists()) {
+      const client = clientSnap.data() as Client;
+      const newPayment: Payment = {
+        fecha: new Date().toLocaleDateString('es-GB'),
+        monto,
+        saldoAnterior: client.adeudo,
+        saldoNuevo: Math.max(0, client.adeudo - monto),
+      };
+      await updateDoc(clientRef, {
+        adeudo: newPayment.saldoNuevo,
+        recuperado: newPayment.saldoNuevo <= 0,
+        historialPagos: [...(client.historialPagos || []), newPayment],
+      });
     }
-    setPlazas(prev => [...prev, plazaName].sort());
-    return true;
-  }, [plazas]);
-
-  const updatePlaza = useCallback((oldName: string, newName: string) => {
-    if (plazas.some(p => p.toLowerCase() === newName.toLowerCase() && p.toLowerCase() !== oldName.toLowerCase())) {
-        return false;
-    }
-    setPlazas(prev => prev.map(p => p === oldName ? newName : p).sort());
-    setClients(prevClients => prevClients.map(c => c.plaza === oldName ? { ...c, plaza: newName } : c));
-    return true;
-  }, [plazas]);
-
-  const deletePlaza = useCallback((plazaName: string) => {
-    setPlazas(prev => prev.filter(p => p !== plazaName));
   }, []);
-  
-  const addAdmin = useCallback((adminData: Omit<Admin, 'id'|'password'> & {password?: string}) => {
-    if (admins.some(a => a.username.toLowerCase() === adminData.username.toLowerCase())) {
-        return false;
-    }
-    const nextId = admins.length > 0 ? Math.max(...admins.map(a => a.id)) + 1 : 1;
-    setAdmins(prev => [...prev, { id: nextId, ...adminData } as Admin].sort((a,b) => a.username.localeCompare(b.username)));
-    return true;
-  }, [admins]);
 
-  const updateAdmin = useCallback((id: number, adminData: Omit<Admin, 'id'|'password'> & {password?: string}) => {
-    if (admins.some(a => a.username.toLowerCase() === adminData.username.toLowerCase() && a.id !== id)) {
-        return false;
-    }
-    setAdmins(prev => prev.map(a => {
-        if (a.id === id) {
-            const updatedAdmin: Admin = { ...a, username: adminData.username };
-            if (adminData.password) {
-                updatedAdmin.password = adminData.password;
-            }
-            return updatedAdmin;
-        }
-        return a;
-    }));
+  const addPlaza = useCallback(async (plazaName: string) => {
+    const q = query(collection(db, 'plazas'), where('name', '==', plazaName));
+    if (!(await getDocs(q)).empty) return false;
+    await addDoc(collection(db, 'plazas'), { name: plazaName });
     return true;
-  }, [admins]);
+  }, []);
 
-  const deleteAdmin = useCallback((id: number) => {
-    if (admins.length <= 1) {
-        return false;
-    }
-    setAdmins(prev => prev.filter(a => a.id !== id));
-    return true;
-  }, [admins]);
+  const updatePlaza = useCallback(async (oldName: string, newName: string) => {
+    if (oldName === newName) return true;
+    const qNew = query(collection(db, 'plazas'), where('name', '==', newName));
+    if (!(await getDocs(qNew)).empty) return false;
 
-  const addUser = useCallback((userData: Omit<User, 'id'>) => {
-    if (users.some(u => u.username.toLowerCase() === userData.username.toLowerCase())) {
-        return false;
-    }
-    const nextId = users.length > 0 ? Math.max(...users.map(u => u.id)) + 1 : 1;
-    setUsers(prev => [...prev, { ...userData, id: nextId }].sort((a,b) => a.username.localeCompare(b.username)));
+    const qOld = query(collection(db, 'plazas'), where('name', '==', oldName));
+    const oldPlazaSnap = await getDocs(qOld);
+    if (oldPlazaSnap.empty) return false;
+
+    const batch = writeBatch(db);
+    batch.update(oldPlazaSnap.docs[0].ref, { name: newName });
+    
+    const clientsQuery = query(collection(db, 'clients'), where('plaza', '==', oldName));
+    const clientsSnapshot = await getDocs(clientsQuery);
+    clientsSnapshot.forEach(doc => batch.update(doc.ref, { plaza: newName }));
+
+    const usersToUpdate = users.filter(u => u.plazas.some(p => p.plazaName === oldName));
+    usersToUpdate.forEach(user => {
+        const userRef = doc(db, 'users', user.id);
+        const newPlazas = user.plazas.map(p => p.plazaName === oldName ? { ...p, plazaName: newName } : p);
+        batch.update(userRef, { plazas: newPlazas });
+    });
+    
+    await batch.commit();
     return true;
   }, [users]);
 
-  const updateUser = useCallback((id: number, userData: Omit<User, 'id' | 'password'> & { password?: string }) => {
-    if (users.some(u => u.username.toLowerCase() === userData.username.toLowerCase() && u.id !== id)) {
-      return false;
-    }
-    setUsers(prev => prev.map(u => {
-      if (u.id === id) {
-        const updatedUser: User = { 
-          ...u, 
-          username: userData.username,
-          plazas: userData.plazas
-        };
-        if (userData.password) {
-          updatedUser.password = userData.password;
-        }
-        return updatedUser;
-      }
-      return u;
-    }));
-    return true;
-  }, [users]);
+  const deletePlaza = useCallback(async (plazaName: string) => {
+    const clientsQuery = query(collection(db, "clients"), where("plaza", "==", plazaName));
+    if (!(await getDocs(clientsQuery)).empty) return false;
 
-  const deleteUser = useCallback((id: number) => {
-    setUsers(prev => prev.filter(u => u.id !== id));
+    const q = query(collection(db, 'plazas'), where('name', '==', plazaName));
+    const plazaSnap = await getDocs(q);
+    if (!plazaSnap.empty) {
+      await deleteDoc(plazaSnap.docs[0].ref);
+    }
+    return true;
+  }, []);
+
+  const addAdmin = useCallback(async (adminData: Omit<Admin, 'id' | 'password'> & { password?: string }) => {
+    const q = query(collection(db, 'admins'), where('username', '==', adminData.username));
+    if (!(await getDocs(q)).empty) return false;
+    await addDoc(collection(db, 'admins'), adminData);
+    return true;
+  }, []);
+
+  const updateAdmin = useCallback(async (id: string, adminData: Omit<Admin, 'id' | 'password'> & { password?: string }) => {
+    const q = query(collection(db, 'admins'), where('username', '==', adminData.username));
+    const existing = await getDocs(q);
+    if (!existing.empty && existing.docs[0].id !== id) return false;
+
+    const adminRef = doc(db, 'admins', id);
+    const dataToUpdate: any = { username: adminData.username };
+    if (adminData.password) dataToUpdate.password = adminData.password;
+    await updateDoc(adminRef, dataToUpdate);
+    return true;
+  }, []);
+
+  const deleteAdmin = useCallback(async (id: string) => {
+    if (admins.length <= 1) return false;
+    await deleteDoc(doc(db, 'admins', id));
+    return true;
+  }, [admins.length]);
+
+  const addUser = useCallback(async (userData: Omit<User, 'id'>) => {
+    const q = query(collection(db, 'users'), where('username', '==', userData.username));
+    if (!(await getDocs(q)).empty) return false;
+    await addDoc(collection(db, 'users'), userData);
+    return true;
+  }, []);
+
+  const updateUser = useCallback(async (id: string, userData: Omit<User, 'id' | 'password'> & { password?: string }) => {
+    const q = query(collection(db, 'users'), where('username', '==', userData.username));
+    const existing = await getDocs(q);
+    if (!existing.empty && existing.docs[0].id !== id) return false;
+
+    const userRef = doc(db, 'users', id);
+    const dataToUpdate: any = { username: userData.username, plazas: userData.plazas };
+    if (userData.password) dataToUpdate.password = userData.password;
+    await updateDoc(userRef, dataToUpdate);
+    return true;
+  }, []);
+
+  const deleteUser = useCallback(async (id: string) => {
+    await deleteDoc(doc(db, 'users', id));
   }, []);
 
   const userPlazas = useMemo(() => {
     if (!currentUser) return [];
-    // Check if the user is an admin
-    const isAdmin = 'username' in currentUser && !('plazas' in currentUser);
-    if (isAdmin) {
-      return plazas.sort(); // Return all plazas for admin
-    }
-    // It's a regular user
+    const isAdmin = !('plazas' in currentUser);
+    if (isAdmin) return plazas.sort();
     const user = currentUser as User;
-    if (!user.plazas) return [];
     return user.plazas.map(p => p.plazaName).sort();
   }, [currentUser, plazas]);
 
-  const value = useMemo(() => ({
+  const value = {
     isAuthenticated: !!currentUser,
     isLoading,
     currentUser,
@@ -327,15 +375,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     addUser,
     updateUser,
     deleteUser,
-  }), [
-    currentUser, isLoading, login, logout, appName, setAppName, clients, plazas, userPlazas, admins, users,
-    addClient, addPlaza, updatePlaza, deletePlaza,
-    addAdmin, updateAdmin, deleteAdmin, addUser, updateUser, deleteUser, updateClient, addPayment
-  ]);
+  };
 
-  return (
-    <AppContext.Provider value={value}>
-      {children}
-    </AppContext.Provider>
-  );
+  return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };

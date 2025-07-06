@@ -62,7 +62,7 @@ export function PaymentDialog({ isOpen, onOpenChange, client }: PaymentDialogPro
     async function onSubmit(values: z.infer<typeof paymentSchema>) {
         setIsSubmitting(true);
         try {
-            addPayment(client!.id, values.monto);
+            await addPayment(client!.id, values.monto);
             toast({
                 title: "Pago Registrado",
                 description: `Se ha registrado un abono de $${values.monto.toLocaleString('en-US', { minimumFractionDigits: 2 })} para ${client!.nombre}.`,

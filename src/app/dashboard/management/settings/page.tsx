@@ -1,6 +1,6 @@
 "use client";
 
-import { useContext } from "react";
+import { useContext, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { Save } from "lucide-react";
+import { Save, Loader2 } from "lucide-react";
 
 const settingsSchema = z.object({
   appName: z.string().min(3, { message: "El nombre debe tener al menos 3 caracteres." }),
@@ -19,18 +19,21 @@ const settingsSchema = z.object({
 export default function SettingsPage() {
   const { appName, setAppName } = useContext(AppContext);
   const { toast } = useToast();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const form = useForm<z.infer<typeof settingsSchema>>({
     resolver: zodResolver(settingsSchema),
     values: { appName },
   });
 
-  function onSubmit(values: z.infer<typeof settingsSchema>) {
-    setAppName(values.appName);
+  async function onSubmit(values: z.infer<typeof settingsSchema>) {
+    setIsSubmitting(true);
+    await setAppName(values.appName);
     toast({
       title: "Ajustes guardados",
       description: "El nombre de la aplicación ha sido actualizado.",
     });
+    setIsSubmitting(false);
   }
 
   return (
@@ -60,7 +63,8 @@ export default function SettingsPage() {
                   </FormItem>
                 )}
               />
-              <Button type="submit">
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 <Save className="mr-2" />
                 Guardar Cambios
               </Button>

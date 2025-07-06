@@ -14,7 +14,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { PlusCircle, Edit, Trash2, KeyRound } from "lucide-react";
+import { PlusCircle, Edit, Trash2, KeyRound, Loader2 } from "lucide-react";
 
 const adminSchema = z.object({
   username: z.string().min(3, { message: "El usuario debe tener al menos 3 caracteres." }),
@@ -25,6 +25,7 @@ export default function AdminsManagementPage() {
   const { admins, addAdmin, updateAdmin, deleteAdmin } = useContext(AppContext);
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingAdmin, setEditingAdmin] = useState<Admin | null>(null);
 
   const form = useForm<z.infer<typeof adminSchema>>({
@@ -39,7 +40,7 @@ export default function AdminsManagementPage() {
     } else {
       form.reset({ username: "", password: "" });
     }
-  }, [editingAdmin, form]);
+  }, [editingAdmin, form, isDialogOpen]);
 
   const handleAddNew = () => {
     setEditingAdmin(null);
@@ -51,8 +52,8 @@ export default function AdminsManagementPage() {
     setIsDialogOpen(true);
   };
 
-  const handleDelete = (adminId: number) => {
-    const success = deleteAdmin(adminId);
+  const handleDelete = async (adminId: string) => {
+    const success = await deleteAdmin(adminId);
     if (success) {
       toast({
         title: "Administrador eliminado",
@@ -67,44 +68,47 @@ export default function AdminsManagementPage() {
     }
   };
 
-  function onSubmit(values: z.infer<typeof adminSchema>) {
-    if (editingAdmin) {
-      // Update existing admin
-      const success = updateAdmin(editingAdmin.id, {
-        username: values.username,
-        ...(values.password && { password: values.password }),
-      });
-      if (success) {
-        toast({
-          title: "Administrador actualizado",
-          description: `Los datos del administrador "${values.username}" han sido actualizados.`,
+  async function onSubmit(values: z.infer<typeof adminSchema>) {
+    setIsSubmitting(true);
+    try {
+      if (editingAdmin) {
+        const success = await updateAdmin(editingAdmin.id, {
+          username: values.username,
+          ...(values.password && { password: values.password }),
         });
-        setIsDialogOpen(false);
+        if (success) {
+          toast({
+            title: "Administrador actualizado",
+            description: `Los datos del administrador "${values.username}" han sido actualizados.`,
+          });
+          setIsDialogOpen(false);
+        } else {
+          form.setError("username", {
+            type: "manual",
+            message: "Ya existe un administrador con este nombre de usuario.",
+          });
+        }
       } else {
-        form.setError("username", {
-          type: "manual",
-          message: "Ya existe un administrador con este nombre de usuario.",
-        });
+        if (!values.password) {
+          form.setError("password", { type: "manual", message: "La contraseña es requerida." });
+          return;
+        }
+        const success = await addAdmin({ username: values.username, password: values.password });
+        if (success) {
+          toast({
+            title: "Administrador registrado",
+            description: `El administrador "${values.username}" ha sido creado.`,
+          });
+          setIsDialogOpen(false);
+        } else {
+          form.setError("username", {
+            type: "manual",
+            message: "Ya existe un administrador con este nombre de usuario.",
+          });
+        }
       }
-    } else {
-      // Create new admin
-      if (!values.password) {
-        form.setError("password", { type: "manual", message: "La contraseña es requerida." });
-        return;
-      }
-      const success = addAdmin({ username: values.username, password: values.password });
-      if (success) {
-        toast({
-          title: "Administrador registrado",
-          description: `El administrador "${values.username}" ha sido creado.`,
-        });
-        setIsDialogOpen(false);
-      } else {
-        form.setError("username", {
-          type: "manual",
-          message: "Ya existe un administrador con este nombre de usuario.",
-        });
-      }
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
@@ -228,7 +232,10 @@ export default function AdminsManagementPage() {
               />
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>Cancelar</Button>
-                <Button type="submit">Guardar Cambios</Button>
+                <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Guardar Cambios
+                </Button>
               </DialogFooter>
             </form>
           </Form>

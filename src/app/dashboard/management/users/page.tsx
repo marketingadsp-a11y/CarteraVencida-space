@@ -1,6 +1,6 @@
 "use client";
 
-import { useContext, useState, useEffect } from "react";
+import { useContext, useState } from "react";
 import { AppContext } from "@/contexts/AppContext";
 import { User } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { PlusCircle, Edit, Trash2, UsersRound, Badge } from "lucide-react";
+import { PlusCircle, Edit, Trash2, UsersRound } from "lucide-react";
 import { UserFormDialog } from "@/components/dashboard/UserFormDialog";
 
 export default function UsersManagementPage() {
@@ -27,8 +27,8 @@ export default function UsersManagementPage() {
     setIsDialogOpen(true);
   };
 
-  const handleDelete = (userId: number) => {
-    deleteUser(userId);
+  const handleDelete = async (userId: string) => {
+    await deleteUser(userId);
     toast({
         title: "Usuario eliminado",
         description: `El usuario ha sido eliminado correctamente.`,

@@ -136,14 +136,14 @@ export function ClientFormDialog({ isOpen, onOpenChange, plazaName, editingClien
         setIsSubmitting(true);
         try {
             if (isEditMode) {
-                updateClient(editingClient.id, values);
+                await updateClient(editingClient.id, values);
                 toast({
                     title: "Cliente Actualizado",
                     description: `Los datos de "${values.nombre}" han sido actualizados.`,
                 });
             } else {
                 const currentDate = new Date().toLocaleDateString('es-GB');
-                addClient({
+                await addClient({
                     ...values,
                     plaza: plazaName,
                     fecha: currentDate,

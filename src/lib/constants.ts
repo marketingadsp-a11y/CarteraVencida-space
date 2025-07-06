@@ -6,7 +6,7 @@ export type Payment = {
 };
 
 export type Client = {
-  id: number;
+  id: string;
   plaza: string;
   fecha: string;
   nombre: string;
@@ -23,7 +23,7 @@ export type Client = {
 };
 
 export type Admin = {
-  id: number;
+  id: string;
   username: string;
   password?: string;
 };
@@ -41,7 +41,7 @@ export type UserPlazaAccess = {
 };
 
 export type User = {
-  id: number;
+  id: string;
   username: string;
   password?: string;
   plazas: UserPlazaAccess[];

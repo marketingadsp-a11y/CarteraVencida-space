@@ -18,7 +18,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
-import { Upload, ClipboardPaste, FileUp, Paperclip } from 'lucide-react';
+import { Upload, ClipboardPaste, FileUp, Paperclip, Loader2 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 interface ImportDialogProps {
@@ -28,7 +28,7 @@ interface ImportDialogProps {
 }
 
 export function ImportDialog({ isOpen, onOpenChange, plazaName }: ImportDialogProps) {
-  const { clients, setClients } = useContext(AppContext);
+  const { setClients } = useContext(AppContext);
   const { toast } = useToast();
   const [importMode, setImportMode] = useState<'add' | 'replace'>('add');
   const [textData, setTextData] = useState('');
@@ -36,15 +36,13 @@ export function ImportDialog({ isOpen, onOpenChange, plazaName }: ImportDialogPr
   const [isImporting, setIsImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const processImportData = (data: (string | number)[][]) => {
+  const processAndImportData = async (data: (string | number)[][]) => {
     setIsImporting(true);
     try {
       if (data.length === 0) {
         throw new Error("No se encontraron datos para importar.");
       }
 
-      let nextId = clients.length > 0 ? Math.max(...clients.map(c => c.id)) + 1 : 1;
-      
       const cleanCurrency = (value: any): number => {
         if (typeof value === 'number') return value;
         if (typeof value !== 'string') return 0;
@@ -52,44 +50,45 @@ export function ImportDialog({ isOpen, onOpenChange, plazaName }: ImportDialogPr
         return parseFloat(cleaned) || 0;
       };
 
-      const newClients: Client[] = data.map((row, index) => {
+      const newClients: Omit<Client, 'id'>[] = data.map((row, index) => {
         if (row.length < 10) {
-          throw new Error(`Fila #${index + 1} inválida. Se esperaban 10 columnas, pero se encontraron ${row.length}.`);
+          console.warn(`Fila #${index + 1} incompleta, será ignorada.`);
+          return null;
         }
         
         const [fecha, nombre, direccion, telefono, aval, telefonoAval, prestamoStr, pagoStr, vencidosStr, adeudoStr] = row;
 
-        const newClient: Client = {
-          id: nextId++,
+        const newClient: Omit<Client, 'id'> = {
           plaza: plazaName,
           fecha: String(fecha),
           nombre: String(nombre),
           direccion: String(direccion),
-          telefono: String(telefono),
+          telefono: String(telefono).replace(/\s/g, ''),
           aval: String(aval),
-          telefonoAval: String(telefonoAval),
+          telefonoAval: String(telefonoAval).replace(/\s/g, ''),
           prestamo: cleanCurrency(prestamoStr),
           pago: cleanCurrency(pagoStr),
           vencidos: parseInt(String(vencidosStr), 10) || 0,
           adeudo: cleanCurrency(adeudoStr),
           recuperado: false,
+          historialPagos: [],
         };
         
         newClient.recuperado = newClient.adeudo <= 0;
 
-        // Basic validation
         if (!newClient.nombre || !newClient.fecha) {
-            throw new Error(`Datos faltantes en la fila #${index + 1}. Nombre y Fecha son requeridos.`);
+            console.warn(`Datos faltantes en la fila #${index + 1} (Nombre o Fecha), será ignorada.`);
+            return null;
         }
         
         return newClient;
-      });
-
-      if (importMode === 'add') {
-        setClients(prev => [...prev, ...newClients]);
-      } else { // 'replace'
-        setClients(prev => [...prev.filter(c => c.plaza !== plazaName), ...newClients]);
+      }).filter((c): c is Client => c !== null);
+      
+      if(newClients.length === 0) {
+          throw new Error("Ningún cliente válido fue encontrado en los datos proporcionados.");
       }
+
+      await setClients(newClients as Client[], plazaName, importMode);
 
       toast({
         title: "Importación exitosa",
@@ -115,8 +114,8 @@ export function ImportDialog({ isOpen, onOpenChange, plazaName }: ImportDialogPr
         toast({ variant: "destructive", title: "Error", description: "El área de texto está vacía." });
         return;
     }
-    const rows = textData.trim().split('\n').map(row => row.split('	')); // Tab separated
-    processImportData(rows);
+    const rows = textData.trim().split('\n').map(row => row.split('	'));
+    processAndImportData(rows);
   };
   
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -124,6 +123,7 @@ export function ImportDialog({ isOpen, onOpenChange, plazaName }: ImportDialogPr
     if (!file) return;
 
     setFileName(file.name);
+    setIsImporting(true);
 
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -134,29 +134,24 @@ export function ImportDialog({ isOpen, onOpenChange, plazaName }: ImportDialogPr
         const workbook = XLSX.read(data, { type: 'array' });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
-        // Using raw:false helps format dates and numbers as strings
         const jsonData: (string | number)[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false, defval: "" });
 
-        // Remove header row if it looks like one
         if (jsonData.length > 0 && typeof jsonData[0][0] === 'string' && jsonData[0][0].toUpperCase().includes('FECHA')) {
           jsonData.shift();
         }
         
-        processImportData(jsonData);
+        processAndImportData(jsonData);
 
       } catch (error: any) {
-        toast({
-          variant: "destructive",
-          title: "Error de Archivo",
-          description: error.message || "No se pudo procesar el archivo Excel.",
-        });
+        toast({ variant: "destructive", title: "Error de Archivo", description: error.message || "No se pudo procesar el archivo Excel." });
+        setIsImporting(false);
       } finally {
-        // Reset file input for re-upload
         if (fileInputRef.current) fileInputRef.current.value = "";
       }
     };
     reader.onerror = () => {
       toast({ variant: "destructive", title: "Error", description: "No se pudo leer el archivo." });
+      setIsImporting(false);
     };
     reader.readAsArrayBuffer(file);
   };
@@ -206,10 +201,16 @@ export function ImportDialog({ isOpen, onOpenChange, plazaName }: ImportDialogPr
                     ref={fileInputRef}
                     onChange={handleFileChange}
                     accept=".xlsx, .xls, .csv" 
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" 
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    disabled={isImporting}
                   />
                   <div className="flex items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted">
-                    {fileName ? (
+                    {isImporting ? (
+                        <div className="flex flex-col items-center gap-2 text-primary">
+                            <Loader2 className="w-8 h-8 animate-spin" />
+                            <p>Procesando archivo...</p>
+                        </div>
+                    ) : fileName ? (
                       <div className="flex items-center gap-2 text-primary">
                           <Paperclip />
                           <span className="font-medium">{fileName}</span>
@@ -235,9 +236,11 @@ export function ImportDialog({ isOpen, onOpenChange, plazaName }: ImportDialogPr
                   rows={8}
                   value={textData}
                   onChange={(e) => setTextData(e.target.value)}
+                  disabled={isImporting}
                 />
               </div>
               <Button onClick={handleImportFromText} disabled={isImporting} className="mt-4 w-full">
+                {isImporting ? <Loader2 className="mr-2 animate-spin"/> : null}
                 {isImporting ? 'Importando...' : 'Importar desde Texto'}
               </Button>
             </TabsContent>

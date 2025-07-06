@@ -74,7 +74,7 @@ export function UserFormDialog({ isOpen, onOpenChange, editingUser }: UserFormDi
     }
   }, [isOpen, editingUser, plazas, form]);
 
-  const onSubmit = (values: UserFormData) => {
+  const onSubmit = async (values: UserFormData) => {
     setIsSubmitting(true);
     
     const assignedPlazas = values.plazaAccess
@@ -88,27 +88,30 @@ export function UserFormDialog({ isOpen, onOpenChange, editingUser }: UserFormDi
     };
 
     let success = false;
-    if (editingUser) {
-      success = updateUser(editingUser.id, userData);
-    } else {
-      if (!values.password) {
-        form.setError("password", { type: "manual", message: "La contraseña es requerida para nuevos usuarios." });
-        setIsSubmitting(false);
-        return;
+    try {
+      if (editingUser) {
+        success = await updateUser(editingUser.id, userData);
+      } else {
+        if (!values.password) {
+          form.setError("password", { type: "manual", message: "La contraseña es requerida para nuevos usuarios." });
+          setIsSubmitting(false);
+          return;
+        }
+        success = await addUser(userData as Omit<User, 'id'>);
       }
-      success = addUser(userData);
-    }
 
-    if (success) {
-      toast({
-        title: editingUser ? "Usuario actualizado" : "Usuario creado",
-        description: `El usuario "${values.username}" ha sido guardado.`,
-      });
-      onOpenChange(false);
-    } else {
-      form.setError("username", { type: "manual", message: "Ya existe un usuario con este nombre." });
+      if (success) {
+        toast({
+          title: editingUser ? "Usuario actualizado" : "Usuario creado",
+          description: `El usuario "${values.username}" ha sido guardado.`,
+        });
+        onOpenChange(false);
+      } else {
+        form.setError("username", { type: "manual", message: "Ya existe un usuario con este nombre." });
+      }
+    } finally {
+        setIsSubmitting(false);
     }
-    setIsSubmitting(false);
   };
 
   return (
