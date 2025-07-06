@@ -2,6 +2,7 @@
 
 import { useContext, useMemo, useState } from 'react';
 import { AppContext } from '@/contexts/AppContext';
+import { Client, User } from '@/lib/constants';
 import { ClientCard } from '@/components/dashboard/ClientCard';
 import StatCard from '@/components/dashboard/StatCard';
 import { Wallet, Users, UserCheck, Search, UserPlus, Upload, MoreVertical } from 'lucide-react';
@@ -21,11 +22,32 @@ import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 
 export default function PlazaPage({ params }: { params: { plaza: string } }) {
-  const { clients } = useContext(AppContext);
+  const { clients, currentUser } = useContext(AppContext);
   const plazaName = decodeURIComponent(params.plaza);
   const [searchTerm, setSearchTerm] = useState('');
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const [isRegisterDialogOpen, setIsRegisterDialogOpen] = useState(false);
+
+  const permissions = useMemo(() => {
+    const defaultPermissions = { canRegister: false, canImport: false, canExport: false, hasAccess: false };
+    if (!currentUser) return defaultPermissions;
+
+    const isRegularUser = 'plazas' in currentUser;
+
+    if (!isRegularUser) { // It's an Admin
+      return { canRegister: true, canImport: true, canExport: true, hasAccess: true };
+    }
+    
+    const user = currentUser as User;
+    if (!user.plazas) return defaultPermissions;
+    const plazaAccess = user.plazas.find(p => p.plazaName === plazaName);
+
+    if (plazaAccess) {
+      return { ...plazaAccess.permissions, hasAccess: true };
+    }
+
+    return defaultPermissions;
+  }, [currentUser, plazaName]);
 
   const plazaClients = useMemo(() => {
     return clients.filter(client => client.plaza === plazaName);
@@ -97,6 +119,25 @@ export default function PlazaPage({ params }: { params: { plaza: string } }) {
     XLSX.writeFile(workbook, `clientes_${plazaName.replace(/ /g, '_')}.xlsx`);
   };
 
+  if (!permissions.hasAccess && !currentUser) {
+     return (
+        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-12 text-center h-full">
+            <h3 className="text-2xl font-bold tracking-tight">Cargando...</h3>
+        </div>
+    );
+  }
+
+  if (!permissions.hasAccess) {
+    return (
+        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-12 text-center h-full">
+            <h3 className="text-2xl font-bold tracking-tight">Acceso Denegado</h3>
+            <p className="text-sm text-muted-foreground">
+            No tienes permiso para ver esta plaza.
+            </p>
+        </div>
+    );
+  }
+
   return (
     <>
       <div className="flex flex-col gap-6">
@@ -131,7 +172,7 @@ export default function PlazaPage({ params }: { params: { plaza: string } }) {
                       <CardTitle className="text-2xl font-bold tracking-tight">Clientes de {plazaName}</CardTitle>
                       <p className="text-muted-foreground">{filteredClients.length} cliente(s) en esta plaza.</p>
                   </div>
-                  <div className="flex items-center gap-2 w-full md:w-auto">
+                  <div className="flex items-center gap-2 w-full md:w-auto flex-wrap">
                       <div className="relative w-full md:w-auto">
                           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                           <Input 
@@ -141,19 +182,21 @@ export default function PlazaPage({ params }: { params: { plaza: string } }) {
                               onChange={(e) => setSearchTerm(e.target.value)}
                           />
                       </div>
-                      <Button onClick={() => setIsRegisterDialogOpen(true)}><UserPlus /> Registrar</Button>
-                      <Button onClick={() => setIsImportDialogOpen(true)}><Upload /> Importar</Button>
-                      <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon">
-                          <MoreVertical className="h-4 w-4" />
-                          </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={handleExportPDF}>Exportar a PDF</DropdownMenuItem>
-                          <DropdownMenuItem onClick={handleExportExcel}>Exportar a Excel</DropdownMenuItem>
-                      </DropdownMenuContent>
-                      </DropdownMenu>
+                      {permissions.canRegister && <Button onClick={() => setIsRegisterDialogOpen(true)}><UserPlus /> Registrar</Button>}
+                      {permissions.canImport && <Button onClick={() => setIsImportDialogOpen(true)}><Upload /> Importar</Button>}
+                      {permissions.canExport && (
+                        <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                            <MoreVertical className="h-4 w-4" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={handleExportPDF}>Exportar a PDF</DropdownMenuItem>
+                            <DropdownMenuItem onClick={handleExportExcel}>Exportar a Excel</DropdownMenuItem>
+                        </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
                   </div>
               </div>
           </CardHeader>
@@ -175,8 +218,8 @@ export default function PlazaPage({ params }: { params: { plaza: string } }) {
           </CardContent>
         </Card>
       </div>
-      <ImportDialog isOpen={isImportDialogOpen} onOpenChange={setIsImportDialogOpen} plazaName={plazaName} />
-      <ClientFormDialog isOpen={isRegisterDialogOpen} onOpenChange={setIsRegisterDialogOpen} plazaName={plazaName} />
+      {permissions.canImport && <ImportDialog isOpen={isImportDialogOpen} onOpenChange={setIsImportDialogOpen} plazaName={plazaName} />}
+      {permissions.canRegister && <ClientFormDialog isOpen={isRegisterDialogOpen} onOpenChange={setIsRegisterDialogOpen} plazaName={plazaName} />}
     </>
   );
 }

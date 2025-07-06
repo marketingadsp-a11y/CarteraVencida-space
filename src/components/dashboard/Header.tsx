@@ -17,13 +17,15 @@ import {
   SheetContent,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { Menu, CircleUser, Rocket, Home, Building, LogOut, Settings, ShieldCheck } from "lucide-react";
+import { Menu, CircleUser, Rocket, Home, Building, LogOut, Settings, ShieldCheck, UsersRound } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 export default function Header() {
-  const { logout, plazas } = useContext(AppContext);
+  const { logout, plazas, currentUser } = useContext(AppContext);
   const pathname = usePathname();
+
+  const isUserAdmin = currentUser && 'username' in currentUser && !('plazas' in currentUser);
 
   const navLinks = [
     { href: "/dashboard", label: "Resumen", icon: Home },
@@ -36,7 +38,8 @@ export default function Header() {
   
   const managementLinks = [
     { href: "/dashboard/management/plazas", label: "Gestionar Plazas", icon: Settings },
-    { href: "/dashboard/management/admins", label: "Gestionar Admins", icon: ShieldCheck }
+    { href: "/dashboard/management/admins", label: "Gestionar Admins", icon: ShieldCheck },
+    { href: "/dashboard/management/users", label: "Gestionar Usuarios", icon: UsersRound },
   ];
 
   return (
@@ -74,24 +77,26 @@ export default function Header() {
                   })}
               </nav>
             </div>
-            <div className="p-4 pt-0">
-              <p className="px-3 py-2 text-xs font-semibold text-muted-foreground tracking-wider">GESTIÓN</p>
-              <nav className="grid gap-2 text-lg font-medium">
-                {managementLinks.map(({ href, label, icon: Icon }) => {
-                  const isActive = pathname.startsWith(href);
-                  return (
-                    <Link
-                      key={href}
-                      href={href}
-                      className={cn("flex items-center gap-4 rounded-xl px-3 py-2 text-muted-foreground hover:text-foreground", isActive && "bg-muted text-foreground")}
-                    >
-                      <Icon className="h-5 w-5" />
-                      {label}
-                    </Link>
-                  )
-                })}
-              </nav>
-            </div>
+            {isUserAdmin && (
+              <div className="p-4 pt-0">
+                <p className="px-3 py-2 text-xs font-semibold text-muted-foreground tracking-wider">GESTIÓN</p>
+                <nav className="grid gap-2 text-lg font-medium">
+                  {managementLinks.map(({ href, label, icon: Icon }) => {
+                    const isActive = pathname.startsWith(href);
+                    return (
+                      <Link
+                        key={href}
+                        href={href}
+                        className={cn("flex items-center gap-4 rounded-xl px-3 py-2 text-muted-foreground hover:text-foreground", isActive && "bg-muted text-foreground")}
+                      >
+                        <Icon className="h-5 w-5" />
+                        {label}
+                      </Link>
+                    )
+                  })}
+                </nav>
+              </div>
+            )}
           </SheetContent>
         </Sheet>
       </nav>
@@ -104,7 +109,7 @@ export default function Header() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Cristobal</DropdownMenuLabel>
+            <DropdownMenuLabel>{currentUser?.username}</DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={logout} className="cursor-pointer">
               <LogOut className="mr-2 h-4 w-4" />

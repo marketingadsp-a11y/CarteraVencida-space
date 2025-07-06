@@ -2,7 +2,7 @@
 
 import React, { createContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { Client, Admin } from '@/lib/constants';
+import { Client, Admin, User, UserPlazaAccess } from '@/lib/constants';
 
 const INITIAL_PLAZAS = [
   "AUTLAN PREPA",
@@ -17,9 +17,12 @@ const INITIAL_ADMINS: Admin[] = [
   { id: 1, username: 'Cristobal', password: '0120' },
 ];
 
+const INITIAL_USERS: User[] = [];
+
 interface AppContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
+  currentUser: Admin | User | null;
   login: (user: string, pass: string) => Promise<boolean>;
   logout: () => void;
   clients: Client[];
@@ -34,11 +37,16 @@ interface AppContextType {
   addAdmin: (adminData: Omit<Admin, 'id' | 'password'> & { password?: string }) => boolean;
   updateAdmin: (id: number, adminData: Omit<Admin, 'id' | 'password'> & { password?: string }) => boolean;
   deleteAdmin: (id: number) => boolean;
+  users: User[];
+  addUser: (userData: Omit<User, 'id'>) => boolean;
+  updateUser: (id: number, userData: Omit<User, 'id' | 'password'> & { password?: string }) => boolean;
+  deleteUser: (id: number) => void;
 }
 
 export const AppContext = createContext<AppContextType>({
   isAuthenticated: false,
   isLoading: true,
+  currentUser: null,
   login: async () => false,
   logout: () => {},
   clients: [],
@@ -53,21 +61,26 @@ export const AppContext = createContext<AppContextType>({
   addAdmin: () => false,
   updateAdmin: () => false,
   deleteAdmin: () => false,
+  users: [],
+  addUser: () => false,
+  updateUser: () => false,
+  deleteUser: () => {},
 });
 
 export const AppProvider = ({ children }: { children: React.ReactNode }) => {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [currentUser, setCurrentUser] = useState<Admin | User | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [clients, setClients] = useState<Client[]>([]);
   const [plazas, setPlazas] = useState<string[]>(INITIAL_PLAZAS);
   const [admins, setAdmins] = useState<Admin[]>(INITIAL_ADMINS);
+  const [users, setUsers] = useState<User[]>(INITIAL_USERS);
   const router = useRouter();
 
   useEffect(() => {
     try {
-      const storedAuth = localStorage.getItem('isAuthenticated');
-      if (storedAuth === 'true') {
-        setIsAuthenticated(true);
+      const storedUser = localStorage.getItem('currentUser');
+      if (storedUser) {
+        setCurrentUser(JSON.parse(storedUser));
       }
     } catch (error) {
       console.error("Could not access localStorage", error);
@@ -79,22 +92,31 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   const login = useCallback(async (user: string, pass: string): Promise<boolean> => {
     const admin = admins.find(a => a.username === user && a.password === pass);
     if (admin) {
-      setIsAuthenticated(true);
-      try {
-        localStorage.setItem('isAuthenticated', 'true');
-      } catch (error) {
-        console.error("Could not access localStorage", error);
-      }
-      router.push('/dashboard');
-      return true;
+        const adminToStore = { ...admin };
+        delete adminToStore.password;
+        setCurrentUser(adminToStore);
+        try { localStorage.setItem('currentUser', JSON.stringify(adminToStore)); } catch (e) { console.error(e); }
+        router.push('/dashboard');
+        return true;
     }
+    
+    const regularUser = users.find(u => u.username === user && u.password === pass);
+    if (regularUser) {
+        const userToStore = { ...regularUser };
+        delete userToStore.password;
+        setCurrentUser(userToStore);
+        try { localStorage.setItem('currentUser', JSON.stringify(userToStore)); } catch (e) { console.error(e); }
+        router.push('/dashboard');
+        return true;
+    }
+
     return false;
-  }, [router, admins]);
+  }, [router, admins, users]);
 
   const logout = useCallback(() => {
-    setIsAuthenticated(false);
+    setCurrentUser(null);
     try {
-      localStorage.removeItem('isAuthenticated');
+      localStorage.removeItem('currentUser');
     } catch (error) {
         console.error("Could not access localStorage", error);
     }
@@ -147,7 +169,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         return false;
     }
     const nextId = admins.length > 0 ? Math.max(...admins.map(a => a.id)) + 1 : 1;
-    setAdmins(prev => [...prev, { id: nextId, ...adminData }].sort((a,b) => a.username.localeCompare(b.username)));
+    setAdmins(prev => [...prev, { id: nextId, ...adminData } as Admin].sort((a,b) => a.username.localeCompare(b.username)));
     return true;
   }, [admins]);
 
@@ -157,7 +179,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     }
     setAdmins(prev => prev.map(a => {
         if (a.id === id) {
-            const updatedAdmin = { ...a, username: adminData.username };
+            const updatedAdmin: Admin = { ...a, username: adminData.username };
             if (adminData.password) {
                 updatedAdmin.password = adminData.password;
             }
@@ -176,9 +198,45 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     return true;
   }, [admins]);
 
+  const addUser = useCallback((userData: Omit<User, 'id'>) => {
+    if (users.some(u => u.username.toLowerCase() === userData.username.toLowerCase())) {
+        return false;
+    }
+    const nextId = users.length > 0 ? Math.max(...users.map(u => u.id)) + 1 : 1;
+    setUsers(prev => [...prev, { ...userData, id: nextId }].sort((a,b) => a.username.localeCompare(b.username)));
+    return true;
+  }, [users]);
+
+  const updateUser = useCallback((id: number, userData: Omit<User, 'id' | 'password'> & { password?: string }) => {
+    if (users.some(u => u.username.toLowerCase() === userData.username.toLowerCase() && u.id !== id)) {
+      return false;
+    }
+    setUsers(prev => prev.map(u => {
+      if (u.id === id) {
+        const updatedUser: User = { 
+          ...u, 
+          username: userData.username,
+          plazas: userData.plazas
+        };
+        if (userData.password) {
+          updatedUser.password = userData.password;
+        }
+        return updatedUser;
+      }
+      return u;
+    }));
+    return true;
+  }, [users]);
+
+  const deleteUser = useCallback((id: number) => {
+    setUsers(prev => prev.filter(u => u.id !== id));
+  }, []);
+
+
   const value = useMemo(() => ({
-    isAuthenticated,
+    isAuthenticated: !!currentUser,
     isLoading,
+    currentUser,
     login,
     logout,
     clients,
@@ -193,10 +251,14 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     addAdmin,
     updateAdmin,
     deleteAdmin,
+    users,
+    addUser,
+    updateUser,
+    deleteUser,
   }), [
-    isAuthenticated, isLoading, login, logout, clients, plazas, admins,
+    currentUser, isLoading, login, logout, clients, plazas, admins, users,
     addClient, toggleClientRecovered, addPlaza, updatePlaza, deletePlaza,
-    addAdmin, updateAdmin, deleteAdmin
+    addAdmin, updateAdmin, deleteAdmin, addUser, updateUser, deleteUser
   ]);
 
   return (

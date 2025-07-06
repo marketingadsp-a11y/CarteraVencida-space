@@ -52,8 +52,9 @@ export function LoginForm() {
         title: "Error de autenticación",
         description: "Usuario o contraseña incorrectos.",
       });
+      setIsSubmitting(false);
     }
-    setIsSubmitting(false);
+    // No setear isSubmitting a false en caso de éxito, porque la página redirigirá.
   }
 
   return (

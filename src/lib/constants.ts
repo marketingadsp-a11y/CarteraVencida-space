@@ -19,3 +19,21 @@ export type Admin = {
   username: string;
   password?: string;
 };
+
+export type UserPermissions = {
+  canRegister: boolean;
+  canImport: boolean;
+  canExport: boolean;
+};
+
+export type UserPlazaAccess = {
+  plazaName: string;
+  permissions: UserPermissions;
+};
+
+export type User = {
+  id: number;
+  username: string;
+  password?: string;
+  plazas: UserPlazaAccess[];
+};

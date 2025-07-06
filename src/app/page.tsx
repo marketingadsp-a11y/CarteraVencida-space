@@ -7,14 +7,14 @@ import { LoginForm } from "@/components/LoginForm";
 import { Loader2 } from "lucide-react";
 
 export default function LoginPage() {
-  const { isAuthenticated, isLoading } = useContext(AppContext);
+  const { currentUser, isLoading } = useContext(AppContext);
   const router = useRouter();
 
   useEffect(() => {
-    if (!isLoading && isAuthenticated) {
+    if (!isLoading && currentUser) {
       router.push("/dashboard");
     }
-  }, [isAuthenticated, isLoading, router]);
+  }, [currentUser, isLoading, router]);
 
   if (isLoading) {
     return (
@@ -24,7 +24,7 @@ export default function LoginPage() {
     );
   }
 
-  if (isAuthenticated) {
+  if (currentUser) {
      return (
       <div className="flex min-h-screen items-center justify-center bg-gray-100">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
