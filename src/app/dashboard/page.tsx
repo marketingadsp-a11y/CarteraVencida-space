@@ -102,7 +102,7 @@ export default function Dashboard() {
               </CardContent>
               <CardFooter>
                  <Link href={`/dashboard/${encodeURIComponent(plaza.name)}`} className="w-full">
-                    <Button className="w-full" variant="outline">
+                    <Button className="w-full">
                         Ver Detalles <ArrowRight className="ml-2 h-4 w-4" />
                     </Button>
                 </Link>
