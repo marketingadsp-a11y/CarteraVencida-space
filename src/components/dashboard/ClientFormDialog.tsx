@@ -11,9 +11,11 @@ import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2 } from "lucide-react";
+import { Loader2, FileDown } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 const clientSchema = z.object({
   nombre: z.string().min(3, { message: "El nombre debe tener al menos 3 caracteres." }),
@@ -66,6 +68,58 @@ export function ClientFormDialog({ isOpen, onOpenChange, plazaName, editingClien
             }
         }
     }, [isOpen, editingClient, isEditMode, form]);
+
+    const handleExportPDF = () => {
+        if (!editingClient) return;
+
+        const doc = new jsPDF();
+        const client = editingClient;
+
+        doc.setFontSize(18);
+        doc.text(`Historial de Cliente: ${client.nombre}`, 14, 22);
+
+        doc.setFontSize(11);
+        doc.setTextColor(100);
+
+        // Client details
+        let y = 35;
+        doc.text(`Plaza: ${client.plaza}`, 14, y);
+        doc.text(`Fecha de registro: ${client.fecha}`, 14, y += 7);
+        doc.text(`Dirección: ${client.direccion}`, 14, y += 7);
+        doc.text(`Teléfono: ${client.telefono}`, 14, y += 7);
+        doc.text(`Aval: ${client.aval}`, 14, y += 7);
+        doc.text(`Teléfono Aval: ${client.telefonoAval}`, 14, y += 7);
+        
+        y += 10;
+        doc.setFontSize(12);
+        doc.text('Resumen Financiero', 14, y);
+        doc.setFontSize(11);
+        doc.text(`Préstamo Original: $${client.prestamo.toLocaleString('en-US', { minimumFractionDigits: 2 })}`, 14, y += 7);
+        doc.text(`Pagos Totales: $${(client.prestamo - client.adeudo).toLocaleString('en-US', { minimumFractionDigits: 2 })}`, 14, y += 7);
+        doc.text(`Adeudo Actual: $${client.adeudo.toLocaleString('en-US', { minimumFractionDigits: 2 })}`, 14, y += 7);
+        doc.text(`No. Vencidos: ${client.vencidos}`, 14, y += 7);
+        
+        // Payment history
+        if (client.historialPagos && client.historialPagos.length > 0) {
+            autoTable(doc, {
+                startY: y + 10,
+                head: [['Fecha', 'Monto', 'Saldo Anterior', 'Saldo Nuevo']],
+                body: client.historialPagos.slice().reverse().map(p => [
+                    p.fecha,
+                    `$${p.monto.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+                    `$${p.saldoAnterior.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+                    `$${p.saldoNuevo.toLocaleString('en-US', { minimumFractionDigits: 2 })}`
+                ]),
+                theme: 'grid',
+                styles: { fontSize: 8 },
+                headStyles: { fontStyle: 'bold' },
+            });
+        } else {
+            doc.text('No hay historial de pagos.', 14, y + 15);
+        }
+        
+        doc.save(`historial_${client.nombre.replace(/ /g, '_')}.pdf`);
+    };
 
     async function onSubmit(values: z.infer<typeof clientSchema>) {
         setIsSubmitting(true);
@@ -181,6 +235,11 @@ export function ClientFormDialog({ isOpen, onOpenChange, plazaName, editingClien
                                 )} />
                             </div>
                             <DialogFooter className="pt-4 sticky bottom-0 bg-background py-4">
+                                {isEditMode && (
+                                    <Button type="button" variant="secondary" onClick={handleExportPDF} className="mr-auto">
+                                        <FileDown className="mr-2 h-4 w-4" /> Exportar Historial
+                                    </Button>
+                                )}
                                 <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
                                 <Button type="submit" disabled={isSubmitting}>
                                     {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
