@@ -3,7 +3,7 @@
 import React, { createContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Client, Admin, User, Payment } from '@/lib/constants';
-import { db } from '@/lib/firebase';
+import { db, isFirebaseConfigured } from '@/lib/firebase';
 import {
   collection,
   onSnapshot,
@@ -46,6 +46,7 @@ interface AppContextType {
   addUser: (userData: Omit<User, 'id'>) => Promise<boolean>;
   updateUser: (id: string, userData: Omit<User, 'id' | 'password'> & { password?: string }) => Promise<boolean>;
   deleteUser: (id: string) => Promise<void>;
+  isFirebaseConfigured: boolean;
 }
 
 export const AppContext = createContext<AppContextType>({
@@ -74,6 +75,7 @@ export const AppContext = createContext<AppContextType>({
   addUser: async () => false,
   updateUser: async () => false,
   deleteUser: async () => {},
+  isFirebaseConfigured: false,
 });
 
 export const AppProvider = ({ children }: { children: React.ReactNode }) => {
@@ -87,6 +89,11 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   const router = useRouter();
 
   useEffect(() => {
+    if (!isFirebaseConfigured || !db) {
+      setIsLoading(false);
+      return;
+    }
+
     try {
       const storedUser = localStorage.getItem('currentUser');
       if (storedUser) {
@@ -155,10 +162,12 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   }, [appName]);
 
   const setAppName = useCallback(async (name: string) => {
+    if (!db) return;
     await setDoc(doc(db, 'settings', 'appName'), { name });
   }, []);
 
   const login = useCallback(async (user: string, pass: string): Promise<boolean> => {
+    if (!db) return false;
     const adminQuery = query(collection(db, 'admins'), where('username', '==', user), where('password', '==', pass));
     const adminSnapshot = await getDocs(adminQuery);
     if (!adminSnapshot.empty) {
@@ -192,6 +201,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   }, [router]);
 
   const addClient = useCallback(async (clientData: Omit<Client, 'id' | 'recuperado' | 'historialPagos'>) => {
+    if (!db) return;
     await addDoc(collection(db, 'clients'), {
       ...clientData,
       recuperado: clientData.adeudo <= 0,
@@ -200,6 +210,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   const setClients = useCallback(async (importedClients: Client[], plazaName: string, mode: 'add' | 'replace') => {
+    if (!db) return;
     const batch = writeBatch(db);
     
     if (mode === 'replace') {
@@ -220,6 +231,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
 
   const updateClient = useCallback(async (id: string, clientData: Partial<Omit<Client, 'id'>>) => {
+    if (!db) return;
     const clientRef = doc(db, 'clients', id);
     const updatedData: Partial<Client> = { ...clientData };
     if (clientData.adeudo !== undefined) {
@@ -229,6 +241,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   const addPayment = useCallback(async (clientId: string, monto: number) => {
+    if (!db) return;
     const clientRef = doc(db, 'clients', clientId);
     const clientSnap = await getDoc(clientRef);
     if (clientSnap.exists()) {
@@ -248,6 +261,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   const addPlaza = useCallback(async (plazaName: string) => {
+    if (!db) return false;
     const q = query(collection(db, 'plazas'), where('name', '==', plazaName));
     if (!(await getDocs(q)).empty) return false;
     await addDoc(collection(db, 'plazas'), { name: plazaName });
@@ -255,6 +269,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   const updatePlaza = useCallback(async (oldName: string, newName: string) => {
+    if (!db) return false;
     if (oldName === newName) return true;
     const qNew = query(collection(db, 'plazas'), where('name', '==', newName));
     if (!(await getDocs(qNew)).empty) return false;
@@ -282,6 +297,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   }, [users]);
 
   const deletePlaza = useCallback(async (plazaName: string) => {
+    if (!db) return false;
     const clientsQuery = query(collection(db, "clients"), where("plaza", "==", plazaName));
     if (!(await getDocs(clientsQuery)).empty) return false;
 
@@ -294,6 +310,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   const addAdmin = useCallback(async (adminData: Omit<Admin, 'id' | 'password'> & { password?: string }) => {
+    if (!db) return false;
     const q = query(collection(db, 'admins'), where('username', '==', adminData.username));
     if (!(await getDocs(q)).empty) return false;
     await addDoc(collection(db, 'admins'), adminData);
@@ -301,6 +318,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   const updateAdmin = useCallback(async (id: string, adminData: Omit<Admin, 'id' | 'password'> & { password?: string }) => {
+    if (!db) return false;
     const q = query(collection(db, 'admins'), where('username', '==', adminData.username));
     const existing = await getDocs(q);
     if (!existing.empty && existing.docs[0].id !== id) return false;
@@ -313,12 +331,14 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   const deleteAdmin = useCallback(async (id: string) => {
+    if (!db) return false;
     if (admins.length <= 1) return false;
     await deleteDoc(doc(db, 'admins', id));
     return true;
   }, [admins.length]);
 
   const addUser = useCallback(async (userData: Omit<User, 'id'>) => {
+    if (!db) return false;
     const q = query(collection(db, 'users'), where('username', '==', userData.username));
     if (!(await getDocs(q)).empty) return false;
     await addDoc(collection(db, 'users'), userData);
@@ -326,6 +346,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   const updateUser = useCallback(async (id: string, userData: Omit<User, 'id' | 'password'> & { password?: string }) => {
+    if (!db) return false;
     const q = query(collection(db, 'users'), where('username', '==', userData.username));
     const existing = await getDocs(q);
     if (!existing.empty && existing.docs[0].id !== id) return false;
@@ -338,6 +359,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   const deleteUser = useCallback(async (id: string) => {
+    if (!db) return;
     await deleteDoc(doc(db, 'users', id));
   }, []);
 
@@ -375,6 +397,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     addUser,
     updateUser,
     deleteUser,
+    isFirebaseConfigured,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
