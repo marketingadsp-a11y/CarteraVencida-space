@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { AppContext } from '@/contexts/AppContext';
 import StatCard from '@/components/dashboard/StatCard';
 import ImportButton from '@/components/dashboard/ImportButton';
-import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from "@/components/ui/progress";
 import { DollarSign, Users, UserCheck, Percent, ArrowRight, Building, Store, Landmark, Warehouse, School, Factory, Castle, Home } from 'lucide-react';
@@ -68,19 +68,26 @@ export default function Dashboard() {
         <h2 className="text-2xl font-bold font-headline tracking-tight mb-4">Cartera por Plaza</h2>
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {plazaStats.map(plaza => (
-            <Card key={plaza.name} className="flex flex-col">
+            <Card key={plaza.name} className="flex flex-col justify-between">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                     <plaza.icon className="w-5 h-5 text-accent" />
                     {plaza.name}
                 </CardTitle>
-                <CardDescription>Deuda Pendiente: ${plaza.pendingDebt.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</CardDescription>
               </CardHeader>
-              <CardContent className="flex-grow">
-                <div className="text-sm text-muted-foreground mb-2">Tasa de Recuperación</div>
-                <div className="flex items-center gap-2">
-                    <Progress value={plaza.recoveryRate} className="w-full" />
-                    <span className="font-bold">{plaza.recoveryRate.toFixed(1)}%</span>
+              <CardContent className="pt-0">
+                <div className="mb-6">
+                  <p className="text-sm text-muted-foreground">Deuda Pendiente</p>
+                  <p className="text-3xl font-bold text-destructive">
+                    ${plaza.pendingDebt.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </p>
+                </div>
+                <div>
+                  <div className="text-sm text-muted-foreground mb-2">Tasa de Recuperación</div>
+                  <div className="flex items-center gap-2">
+                      <Progress value={plaza.recoveryRate} className="w-full" />
+                      <span className="font-bold">{plaza.recoveryRate.toFixed(1)}%</span>
+                  </div>
                 </div>
               </CardContent>
               <CardFooter>
