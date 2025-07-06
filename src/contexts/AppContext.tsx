@@ -33,6 +33,7 @@ interface AppContextType {
   updateClient: (id: number, clientData: Partial<Omit<Client, 'id'>>) => void;
   addPayment: (clientId: number, monto: number) => void;
   plazas: string[];
+  userPlazas: string[];
   addPlaza: (plazaName: string) => boolean;
   updatePlaza: (oldName: string, newName: string) => boolean;
   deletePlaza: (plazaName: string) => void;
@@ -60,6 +61,7 @@ export const AppContext = createContext<AppContextType>({
   updateClient: () => {},
   addPayment: () => {},
   plazas: [],
+  userPlazas: [],
   addPlaza: () => false,
   updatePlaza: () => false,
   deletePlaza: () => {},
@@ -286,6 +288,18 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     setUsers(prev => prev.filter(u => u.id !== id));
   }, []);
 
+  const userPlazas = useMemo(() => {
+    if (!currentUser) return [];
+    // Check if the user is an admin
+    const isAdmin = 'username' in currentUser && !('plazas' in currentUser);
+    if (isAdmin) {
+      return plazas.sort(); // Return all plazas for admin
+    }
+    // It's a regular user
+    const user = currentUser as User;
+    if (!user.plazas) return [];
+    return user.plazas.map(p => p.plazaName).sort();
+  }, [currentUser, plazas]);
 
   const value = useMemo(() => ({
     isAuthenticated: !!currentUser,
@@ -301,6 +315,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     updateClient,
     addPayment,
     plazas,
+    userPlazas,
     addPlaza,
     updatePlaza,
     deletePlaza,
@@ -313,7 +328,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     updateUser,
     deleteUser,
   }), [
-    currentUser, isLoading, login, logout, appName, setAppName, clients, plazas, admins, users,
+    currentUser, isLoading, login, logout, appName, setAppName, clients, plazas, userPlazas, admins, users,
     addClient, addPlaza, updatePlaza, deletePlaza,
     addAdmin, updateAdmin, deleteAdmin, addUser, updateUser, deleteUser, updateClient, addPayment
   ]);

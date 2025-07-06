@@ -12,7 +12,7 @@ import { DollarSign, Users, UserCheck, Percent, ArrowRight, Building, Store, Lan
 const plazaIcons = [Building, Store, Landmark, Warehouse, School, Factory, Castle, Home];
 
 export default function Dashboard() {
-  const { clients, plazas } = useContext(AppContext);
+  const { clients, userPlazas } = useContext(AppContext);
 
   const stats = useMemo(() => {
     const totalClients = clients.length;
@@ -24,7 +24,7 @@ export default function Dashboard() {
   }, [clients]);
 
   const plazaStats = useMemo(() => {
-    return plazas.map((plaza, index) => {
+    return userPlazas.map((plaza, index) => {
       const plazaClients = clients.filter(c => c.plaza === plaza);
       const pendingDebt = plazaClients.reduce((acc, client) => acc + client.adeudo, 0);
       const totalClientsInPlaza = plazaClients.length;
@@ -38,7 +38,7 @@ export default function Dashboard() {
         icon: plazaIcons[index % plazaIcons.length]
       };
     });
-  }, [clients, plazas]);
+  }, [clients, userPlazas]);
   
   return (
     <div className="flex flex-col gap-8">

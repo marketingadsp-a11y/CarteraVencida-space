@@ -24,14 +24,14 @@ import { cn } from "@/lib/utils";
 const plazaIcons = [Building, Store, Landmark, Warehouse, School, Factory, Castle, Home];
 
 export default function Header() {
-  const { logout, plazas, currentUser, appName } = useContext(AppContext);
+  const { logout, userPlazas, currentUser, appName } = useContext(AppContext);
   const pathname = usePathname();
 
   const isUserAdmin = currentUser && 'username' in currentUser && !('plazas' in currentUser);
 
   const navLinks = [
     { href: "/dashboard", label: "Resumen", icon: Home },
-    ...plazas.map((plaza, index) => ({
+    ...userPlazas.map((plaza, index) => ({
       href: `/dashboard/${encodeURIComponent(plaza)}`,
       label: plaza,
       icon: plazaIcons[index % plazaIcons.length],
