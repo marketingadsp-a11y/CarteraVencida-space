@@ -17,7 +17,7 @@ import {
   SheetContent,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { Menu, CircleUser, Rocket, Home, Building, LogOut, Settings } from "lucide-react";
+import { Menu, CircleUser, Rocket, Home, Building, LogOut, Settings, ShieldCheck } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
@@ -35,7 +35,8 @@ export default function Header() {
   ];
   
   const managementLinks = [
-    { href: "/dashboard/management/plazas", label: "Gestionar Plazas", icon: Settings }
+    { href: "/dashboard/management/plazas", label: "Gestionar Plazas", icon: Settings },
+    { href: "/dashboard/management/admins", label: "Gestionar Admins", icon: ShieldCheck }
   ];
 
   return (

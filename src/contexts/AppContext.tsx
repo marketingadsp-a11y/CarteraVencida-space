@@ -2,7 +2,7 @@
 
 import React, { createContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { Client } from '@/lib/constants';
+import { Client, Admin } from '@/lib/constants';
 
 const INITIAL_PLAZAS = [
   "AUTLAN PREPA",
@@ -11,6 +11,10 @@ const INITIAL_PLAZAS = [
   "TECOLOTLAN",
   "OFICINA CENTRO",
   "RUTA AARON",
+];
+
+const INITIAL_ADMINS: Admin[] = [
+  { id: 1, username: 'Cristobal', password: '0120' },
 ];
 
 interface AppContextType {
@@ -26,6 +30,10 @@ interface AppContextType {
   addPlaza: (plazaName: string) => boolean;
   updatePlaza: (oldName: string, newName: string) => boolean;
   deletePlaza: (plazaName: string) => void;
+  admins: Admin[];
+  addAdmin: (adminData: Omit<Admin, 'id' | 'password'> & { password?: string }) => boolean;
+  updateAdmin: (id: number, adminData: Omit<Admin, 'id' | 'password'> & { password?: string }) => boolean;
+  deleteAdmin: (id: number) => boolean;
 }
 
 export const AppContext = createContext<AppContextType>({
@@ -41,6 +49,10 @@ export const AppContext = createContext<AppContextType>({
   addPlaza: () => false,
   updatePlaza: () => false,
   deletePlaza: () => {},
+  admins: [],
+  addAdmin: () => false,
+  updateAdmin: () => false,
+  deleteAdmin: () => false,
 });
 
 export const AppProvider = ({ children }: { children: React.ReactNode }) => {
@@ -48,6 +60,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [clients, setClients] = useState<Client[]>([]);
   const [plazas, setPlazas] = useState<string[]>(INITIAL_PLAZAS);
+  const [admins, setAdmins] = useState<Admin[]>(INITIAL_ADMINS);
   const router = useRouter();
 
   useEffect(() => {
@@ -64,7 +77,8 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   const login = useCallback(async (user: string, pass: string): Promise<boolean> => {
-    if (user === 'Cristobal' && pass === '0120') {
+    const admin = admins.find(a => a.username === user && a.password === pass);
+    if (admin) {
       setIsAuthenticated(true);
       try {
         localStorage.setItem('isAuthenticated', 'true');
@@ -75,7 +89,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       return true;
     }
     return false;
-  }, [router]);
+  }, [router, admins]);
 
   const logout = useCallback(() => {
     setIsAuthenticated(false);
@@ -87,45 +101,80 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     router.push('/');
   }, [router]);
 
-  const toggleClientRecovered = (id: number) => {
+  const toggleClientRecovered = useCallback((id: number) => {
     setClients(prevClients => 
       prevClients.map(client => 
         client.id === id ? { ...client, recuperado: !client.recuperado } : client
       )
     );
-  };
+  }, []);
   
-  const addClient = (clientData: Omit<Client, 'id'>) => {
-    const nextId = clients.length > 0 ? Math.max(...clients.map(c => c.id)) + 1 : 1;
-    const newClient: Client = {
-      ...clientData,
-      id: nextId,
-      recuperado: clientData.recuperado ?? false,
-    };
-    setClients(prev => [...prev, newClient].sort((a, b) => a.nombre.localeCompare(b.nombre)));
-  };
+  const addClient = useCallback((clientData: Omit<Client, 'id'>) => {
+    setClients(prev => {
+        const nextId = prev.length > 0 ? Math.max(...prev.map(c => c.id)) + 1 : 1;
+        const newClient: Client = {
+          ...clientData,
+          id: nextId,
+          recuperado: clientData.recuperado ?? false,
+        };
+        return [...prev, newClient].sort((a, b) => a.nombre.localeCompare(b.nombre));
+    });
+  }, []);
 
-  const addPlaza = (plazaName: string) => {
+  const addPlaza = useCallback((plazaName: string) => {
     if (plazas.some(p => p.toLowerCase() === plazaName.toLowerCase())) {
-        return false; // Already exists
+        return false;
     }
     setPlazas(prev => [...prev, plazaName].sort());
     return true;
-  };
+  }, [plazas]);
 
-  const updatePlaza = (oldName: string, newName: string) => {
+  const updatePlaza = useCallback((oldName: string, newName: string) => {
     if (plazas.some(p => p.toLowerCase() === newName.toLowerCase() && p.toLowerCase() !== oldName.toLowerCase())) {
-        return false; // New name already exists
+        return false;
     }
     setPlazas(prev => prev.map(p => p === oldName ? newName : p).sort());
-    // Also update clients associated with this plaza
     setClients(prevClients => prevClients.map(c => c.plaza === oldName ? { ...c, plaza: newName } : c));
     return true;
-  }
+  }, [plazas]);
 
-  const deletePlaza = (plazaName: string) => {
+  const deletePlaza = useCallback((plazaName: string) => {
     setPlazas(prev => prev.filter(p => p !== plazaName));
-  }
+  }, []);
+  
+  const addAdmin = useCallback((adminData: Omit<Admin, 'id'|'password'> & {password?: string}) => {
+    if (admins.some(a => a.username.toLowerCase() === adminData.username.toLowerCase())) {
+        return false;
+    }
+    const nextId = admins.length > 0 ? Math.max(...admins.map(a => a.id)) + 1 : 1;
+    setAdmins(prev => [...prev, { id: nextId, ...adminData }].sort((a,b) => a.username.localeCompare(b.username)));
+    return true;
+  }, [admins]);
+
+  const updateAdmin = useCallback((id: number, adminData: Omit<Admin, 'id'|'password'> & {password?: string}) => {
+    if (admins.some(a => a.username.toLowerCase() === adminData.username.toLowerCase() && a.id !== id)) {
+        return false;
+    }
+    setAdmins(prev => prev.map(a => {
+        if (a.id === id) {
+            const updatedAdmin = { ...a, username: adminData.username };
+            if (adminData.password) {
+                updatedAdmin.password = adminData.password;
+            }
+            return updatedAdmin;
+        }
+        return a;
+    }));
+    return true;
+  }, [admins]);
+
+  const deleteAdmin = useCallback((id: number) => {
+    if (admins.length <= 1) {
+        return false;
+    }
+    setAdmins(prev => prev.filter(a => a.id !== id));
+    return true;
+  }, [admins]);
 
   const value = useMemo(() => ({
     isAuthenticated,
@@ -139,8 +188,16 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     plazas,
     addPlaza,
     updatePlaza,
-    deletePlaza
-  }), [isAuthenticated, isLoading, login, logout, clients, plazas, addClient]);
+    deletePlaza,
+    admins,
+    addAdmin,
+    updateAdmin,
+    deleteAdmin,
+  }), [
+    isAuthenticated, isLoading, login, logout, clients, plazas, admins,
+    addClient, toggleClientRecovered, addPlaza, updatePlaza, deletePlaza,
+    addAdmin, updateAdmin, deleteAdmin
+  ]);
 
   return (
     <AppContext.Provider value={value}>

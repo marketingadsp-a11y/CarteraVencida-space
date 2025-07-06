@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Rocket, Home, Building, Settings } from "lucide-react";
+import { Rocket, Home, Building, Settings, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useContext } from "react";
@@ -23,7 +23,8 @@ export default function Sidebar() {
   ];
 
   const managementLinks = [
-    { href: "/dashboard/management/plazas", label: "Gestionar Plazas", icon: Settings }
+    { href: "/dashboard/management/plazas", label: "Gestionar Plazas", icon: Settings },
+    { href: "/dashboard/management/admins", label: "Gestionar Admins", icon: ShieldCheck }
   ];
 
   return (

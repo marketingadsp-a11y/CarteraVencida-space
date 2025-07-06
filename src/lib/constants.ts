@@ -13,3 +13,9 @@ export type Client = {
   adeudo: number;
   recuperado?: boolean;
 };
+
+export type Admin = {
+  id: number;
+  username: string;
+  password?: string;
+};
