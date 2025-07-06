@@ -8,12 +8,14 @@ interface StatCardProps {
   icon: React.ElementType<LucideProps>;
   variant?: 'default' | 'destructive';
   description?: string;
+  className?: string;
 }
 
-export default function StatCard({ title, value, icon: Icon, variant = 'default', description }: StatCardProps) {
+export default function StatCard({ title, value, icon: Icon, variant = 'default', description, className }: StatCardProps) {
   return (
     <Card className={cn(
-      variant === 'destructive' && 'bg-destructive text-destructive-foreground'
+      variant === 'destructive' && 'bg-destructive text-destructive-foreground',
+      className
     )}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-sm font-medium">{title}</CardTitle>

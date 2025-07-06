@@ -50,24 +50,35 @@ export default function PlazaPage({ params }: { params: { plaza: string } }) {
   }, [plazaClients]);
 
   const handleExportPDF = () => {
-    const doc = new jsPDF();
+    const doc = new jsPDF({ orientation: 'landscape' });
     doc.text(`Clientes de ${plazaName}`, 14, 16);
     autoTable(doc, {
-        head: [['Nombre', 'Dirección', 'Teléfono', 'Adeudo', 'Estado']],
-        body: filteredClients.map(c => [
-            c.nombre,
-            c.direccion,
-            c.telefono,
-            `$${c.adeudo.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
-            c.recuperado ? 'Recuperado' : 'Pendiente'
-        ]),
-        startY: 20,
+      head: [['ID', 'Fecha', 'Nombre', 'Dirección', 'Teléfono', 'Aval', 'Tel. Aval', 'Préstamo', 'Pago', 'Vencidos', 'Adeudo', 'Estado']],
+      body: filteredClients.map(c => [
+          c.id,
+          c.fecha,
+          c.nombre,
+          c.direccion,
+          c.telefono,
+          c.aval,
+          c.telefonoAval,
+          `$${c.prestamo.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+          `$${c.pago.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+          c.vencidos,
+          `$${c.adeudo.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+          c.recuperado ? 'Recuperado' : 'Pendiente'
+      ]),
+      startY: 20,
+      theme: 'grid',
+      styles: { fontSize: 7 },
+      headStyles: { fontSize: 7, fontStyle: 'bold' },
     });
     doc.save(`clientes_${plazaName.replace(/ /g, '_')}.pdf`);
   };
 
   const handleExportExcel = () => {
     const worksheet = XLSX.utils.json_to_sheet(filteredClients.map(c => ({
+        'ID': c.id,
         'Plaza': c.plaza,
         'Fecha': c.fecha,
         'Nombre Cliente': c.nombre,

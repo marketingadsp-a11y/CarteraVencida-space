@@ -49,7 +49,13 @@ export default function Dashboard() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <StatCard title="Deuda Total" value={`$${stats.totalDebt.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} icon={DollarSign} />
+        <StatCard 
+          title="Deuda Total" 
+          value={`$${stats.totalDebt.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} 
+          icon={DollarSign} 
+          variant="destructive"
+          className="bg-gradient-to-br from-red-900 to-rose-500 text-destructive-foreground"
+        />
         <StatCard title="Clientes Totales" value={stats.totalClients.toString()} icon={Users} />
         <StatCard title="Clientes Recuperados" value={stats.recoveredClients.toString()} icon={UserCheck} />
         <StatCard title="Tasa de Recuperación" value={`${stats.recoveryRate.toFixed(1)}%`} icon={Percent} />
