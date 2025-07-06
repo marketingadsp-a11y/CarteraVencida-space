@@ -44,7 +44,7 @@ export function ClientCard({ client, onEdit, onPay }: { client: Client, onEdit: 
       </CardContent>
       <CardFooter className="gap-2 p-4">
         <Button variant="outline" className="w-full" onClick={() => onEdit(client)}>
-          <Edit /> Ver / Editar
+          <Edit /> Editar
         </Button>
         <Button className="w-full" onClick={() => onPay(client)}>
           <DollarSign /> Abonar
