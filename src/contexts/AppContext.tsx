@@ -20,6 +20,7 @@ interface AppContextType {
   logout: () => void;
   clients: Client[];
   setClients: React.Dispatch<React.SetStateAction<Client[]>>;
+  addClient: (clientData: Omit<Client, 'id'>) => void;
   toggleClientRecovered: (id: number) => void;
   plazas: string[];
   addPlaza: (plazaName: string) => boolean;
@@ -34,6 +35,7 @@ export const AppContext = createContext<AppContextType>({
   logout: () => {},
   clients: [],
   setClients: () => {},
+  addClient: () => {},
   toggleClientRecovered: () => {},
   plazas: [],
   addPlaza: () => false,
@@ -93,6 +95,16 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     );
   };
   
+  const addClient = (clientData: Omit<Client, 'id'>) => {
+    const nextId = clients.length > 0 ? Math.max(...clients.map(c => c.id)) + 1 : 1;
+    const newClient: Client = {
+      ...clientData,
+      id: nextId,
+      recuperado: clientData.recuperado ?? false,
+    };
+    setClients(prev => [...prev, newClient].sort((a, b) => a.nombre.localeCompare(b.nombre)));
+  };
+
   const addPlaza = (plazaName: string) => {
     if (plazas.some(p => p.toLowerCase() === plazaName.toLowerCase())) {
         return false; // Already exists
@@ -122,12 +134,13 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     logout,
     clients,
     setClients,
+    addClient,
     toggleClientRecovered,
     plazas,
     addPlaza,
     updatePlaza,
     deletePlaza
-  }), [isAuthenticated, isLoading, login, logout, clients, plazas]);
+  }), [isAuthenticated, isLoading, login, logout, clients, plazas, addClient]);
 
   return (
     <AppContext.Provider value={value}>

@@ -15,12 +15,17 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ImportDialog } from '@/components/dashboard/ImportDialog';
+import { ClientFormDialog } from '@/components/dashboard/ClientFormDialog';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx';
 
 export default function PlazaPage({ params }: { params: { plaza: string } }) {
   const { clients } = useContext(AppContext);
   const plazaName = decodeURIComponent(params.plaza);
   const [searchTerm, setSearchTerm] = useState('');
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
+  const [isRegisterDialogOpen, setIsRegisterDialogOpen] = useState(false);
 
   const plazaClients = useMemo(() => {
     return clients.filter(client => client.plaza === plazaName);
@@ -43,6 +48,43 @@ export default function PlazaPage({ params }: { params: { plaza: string } }) {
     
     return { totalClients, totalDebt, recoveredClients };
   }, [plazaClients]);
+
+  const handleExportPDF = () => {
+    const doc = new jsPDF();
+    doc.text(`Clientes de ${plazaName}`, 14, 16);
+    autoTable(doc, {
+        head: [['Nombre', 'Dirección', 'Teléfono', 'Adeudo', 'Estado']],
+        body: filteredClients.map(c => [
+            c.nombre,
+            c.direccion,
+            c.telefono,
+            `$${c.adeudo.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+            c.recuperado ? 'Recuperado' : 'Pendiente'
+        ]),
+        startY: 20,
+    });
+    doc.save(`clientes_${plazaName.replace(/ /g, '_')}.pdf`);
+  };
+
+  const handleExportExcel = () => {
+    const worksheet = XLSX.utils.json_to_sheet(filteredClients.map(c => ({
+        'Plaza': c.plaza,
+        'Fecha': c.fecha,
+        'Nombre Cliente': c.nombre,
+        'Dirección': c.direccion,
+        'Teléfono': c.telefono,
+        'Aval': c.aval,
+        'Tel. Aval': c.telefonoAval,
+        'Préstamo ($)': c.prestamo,
+        'Pago ($)': c.pago,
+        'No. Vencidos': c.vencidos,
+        'Adeudo ($)': c.adeudo,
+        'Estado': c.recuperado ? 'Recuperado' : 'Pendiente'
+    })));
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Clientes');
+    XLSX.writeFile(workbook, `clientes_${plazaName.replace(/ /g, '_')}.xlsx`);
+  };
 
   return (
     <>
@@ -88,7 +130,7 @@ export default function PlazaPage({ params }: { params: { plaza: string } }) {
                               onChange={(e) => setSearchTerm(e.target.value)}
                           />
                       </div>
-                      <Button variant="outline"><UserPlus /> Registrar</Button>
+                      <Button onClick={() => setIsRegisterDialogOpen(true)}><UserPlus /> Registrar</Button>
                       <Button onClick={() => setIsImportDialogOpen(true)}><Upload /> Importar</Button>
                       <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -97,8 +139,8 @@ export default function PlazaPage({ params }: { params: { plaza: string } }) {
                           </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                          <DropdownMenuItem>Exportar a PDF</DropdownMenuItem>
-                          <DropdownMenuItem>Exportar a Excel</DropdownMenuItem>
+                          <DropdownMenuItem onClick={handleExportPDF}>Exportar a PDF</DropdownMenuItem>
+                          <DropdownMenuItem onClick={handleExportExcel}>Exportar a Excel</DropdownMenuItem>
                       </DropdownMenuContent>
                       </DropdownMenu>
                   </div>
@@ -115,7 +157,7 @@ export default function PlazaPage({ params }: { params: { plaza: string } }) {
                   <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-12 text-center">
                       <h3 className="text-2xl font-bold tracking-tight">No se encontraron clientes</h3>
                       <p className="text-sm text-muted-foreground">
-                      Pruebe con otro término de búsqueda o importe nuevos datos.
+                      Pruebe con otro término de búsqueda, importe o registre un nuevo cliente.
                       </p>
                   </div>
               )}
@@ -123,6 +165,7 @@ export default function PlazaPage({ params }: { params: { plaza: string } }) {
         </Card>
       </div>
       <ImportDialog isOpen={isImportDialogOpen} onOpenChange={setIsImportDialogOpen} plazaName={plazaName} />
+      <ClientFormDialog isOpen={isRegisterDialogOpen} onOpenChange={setIsRegisterDialogOpen} plazaName={plazaName} />
     </>
   );
 }
