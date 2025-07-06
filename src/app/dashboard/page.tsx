@@ -4,7 +4,6 @@ import { useContext, useMemo } from 'react';
 import Link from 'next/link';
 import { AppContext } from '@/contexts/AppContext';
 import StatCard from '@/components/dashboard/StatCard';
-import ImportButton from '@/components/dashboard/ImportButton';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from "@/components/ui/progress";
@@ -48,7 +47,6 @@ export default function Dashboard() {
           <h1 className="text-3xl font-bold font-headline tracking-tight">Resumen General</h1>
           <p className="text-muted-foreground">Vista general de la cartera de clientes.</p>
         </div>
-        <ImportButton />
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
