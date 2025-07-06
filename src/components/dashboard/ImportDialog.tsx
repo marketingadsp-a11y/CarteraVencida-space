@@ -41,6 +41,11 @@ export function ImportDialog({ isOpen, onOpenChange, plazaName }: ImportDialogPr
 
       const rows = textData.trim().split('\n');
       let nextId = clients.length > 0 ? Math.max(...clients.map(c => c.id)) + 1 : 1;
+      
+      const cleanCurrency = (value: string) => {
+        if (typeof value !== 'string') return '';
+        return value.replace(/[$,]/g, '');
+      };
 
       const newClients: Client[] = rows.map((row, index) => {
         const columns = row.split('	');
@@ -59,15 +64,15 @@ export function ImportDialog({ isOpen, onOpenChange, plazaName }: ImportDialogPr
           telefono,
           aval,
           telefonoAval,
-          prestamo: parseFloat(prestamoStr),
-          pago: parseFloat(pagoStr),
+          prestamo: parseFloat(cleanCurrency(prestamoStr)),
+          pago: parseFloat(cleanCurrency(pagoStr)),
           vencidos: parseInt(vencidosStr, 10),
-          adeudo: parseFloat(adeudoStr),
+          adeudo: parseFloat(cleanCurrency(adeudoStr)),
           recuperado: false,
         };
 
         if (isNaN(newClient.prestamo) || isNaN(newClient.pago) || isNaN(newClient.vencidos) || isNaN(newClient.adeudo)) {
-          throw new Error(`Dato numérico inválido en la fila #${index + 1}.`);
+          throw new Error(`Dato numérico inválido en la fila #${index + 1}. Revise los valores de préstamo, pago, vencidos y adeudo.`);
         }
 
         return newClient;
