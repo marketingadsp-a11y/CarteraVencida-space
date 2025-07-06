@@ -23,12 +23,22 @@ export function FirebaseWarning() {
           <li>En la sección "Tus apps", crea una nueva "App web" si no tienes una.</li>
           <li>Copia el objeto de configuración de Firebase (firebaseConfig).</li>
           <li>
-            Abre el archivo <code className="bg-yellow-200 dark:bg-yellow-800/50 p-1 rounded font-mono text-xs">src/lib/firebase.ts</code> en el editor.
+            En el editor de código, crea un nuevo archivo llamado <code className="bg-yellow-200 dark:bg-yellow-800/50 p-1 rounded font-mono text-xs">.env.local</code> en la raíz del proyecto (al mismo nivel que `package.json`).
           </li>
-          <li>Pega el objeto de configuración que copiaste para reemplazar los valores de marcador de posición.</li>
+          <li>
+            Pega el siguiente contenido en el archivo <code className="bg-yellow-200 dark:bg-yellow-800/50 p-1 rounded font-mono text-xs">.env.local</code> y reemplaza los valores de marcador de posición con tus credenciales de Firebase:
+            <pre className="mt-2 p-2 rounded bg-yellow-200/50 dark:bg-yellow-800/30 overflow-x-auto text-xs">
+{`NEXT_PUBLIC_FIREBASE_API_KEY="TU_API_KEY"
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN="TU_AUTH_DOMAIN"
+NEXT_PUBLIC_FIREBASE_PROJECT_ID="TU_PROJECT_ID"
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET="TU_STORAGE_BUCKET"
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID="TU_MESSAGING_SENDER_ID"
+NEXT_PUBLIC_FIREBASE_APP_ID="TU_APP_ID"`}
+            </pre>
+          </li>
         </ol>
         <p className="font-semibold text-center pt-4">
-          Una vez que guardes los cambios en el archivo, la aplicación se recargará automáticamente.
+          Una vez que guardes el archivo .env.local, la aplicación se recargará automáticamente.
         </p>
       </CardContent>
     </Card>
