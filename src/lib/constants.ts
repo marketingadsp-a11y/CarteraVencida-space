@@ -32,6 +32,7 @@ export type UserPermissions = {
   canRegister: boolean;
   canImport: boolean;
   canExport: boolean;
+  canExportHistory: boolean;
 };
 
 export type UserPlazaAccess = {

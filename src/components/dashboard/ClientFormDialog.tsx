@@ -3,9 +3,9 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import React, { useContext, useState, useEffect } from "react";
+import React, { useContext, useState, useEffect, useMemo } from "react";
 import { AppContext } from "@/contexts/AppContext";
-import { Client } from "@/lib/constants";
+import { Client, User } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -49,7 +49,7 @@ const defaultFormValues = {
 };
 
 export function ClientFormDialog({ isOpen, onOpenChange, plazaName, editingClient }: ClientFormDialogProps) {
-    const { addClient, updateClient } = useContext(AppContext);
+    const { addClient, updateClient, currentUser } = useContext(AppContext);
     const { toast } = useToast();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const isEditMode = !!editingClient;
@@ -68,6 +68,17 @@ export function ClientFormDialog({ isOpen, onOpenChange, plazaName, editingClien
             }
         }
     }, [isOpen, editingClient, isEditMode, form]);
+    
+    const canExportHistory = useMemo(() => {
+        if (!currentUser) return false;
+        if (!('plazas' in currentUser)) return true; // Admin
+
+        const user = currentUser as User;
+        if (!user.plazas) return false;
+        
+        const plazaAccess = user.plazas.find(p => p.plazaName === plazaName);
+        return plazaAccess?.permissions.canExportHistory ?? false;
+    }, [currentUser, plazaName]);
 
     const handleExportPDF = () => {
         if (!editingClient) return;
@@ -235,7 +246,7 @@ export function ClientFormDialog({ isOpen, onOpenChange, plazaName, editingClien
                                 )} />
                             </div>
                             <DialogFooter className="pt-4 sticky bottom-0 bg-background py-4">
-                                {isEditMode && (
+                                {isEditMode && canExportHistory && (
                                     <Button type="button" variant="secondary" onClick={handleExportPDF} className="mr-auto">
                                         <FileDown className="mr-2 h-4 w-4" /> Exportar Historial
                                     </Button>

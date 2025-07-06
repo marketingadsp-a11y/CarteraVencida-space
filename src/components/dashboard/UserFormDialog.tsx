@@ -19,6 +19,7 @@ const userPermissionSchema = z.object({
   canRegister: z.boolean().default(false),
   canImport: z.boolean().default(false),
   canExport: z.boolean().default(false),
+  canExportHistory: z.boolean().default(false),
 });
 
 const userPlazaAccessSchema = z.object({
@@ -65,7 +66,7 @@ export function UserFormDialog({ isOpen, onOpenChange, editingUser }: UserFormDi
           return {
             plazaName,
             hasAccess: !!existingAccess,
-            permissions: existingAccess?.permissions || { canRegister: false, canImport: false, canExport: false },
+            permissions: existingAccess?.permissions || { canRegister: false, canImport: false, canExport: false, canExportHistory: false },
           };
         }),
       };
@@ -161,7 +162,7 @@ export function UserFormDialog({ isOpen, onOpenChange, editingUser }: UserFormDi
                     </div>
                     {hasAccess && (
                     <AccordionContent>
-                      <div className="grid grid-cols-3 gap-4 pl-12 pr-4 pt-2">
+                      <div className="grid grid-cols-2 gap-4 pl-12 pr-4 pt-2">
                         <FormField control={form.control} name={`plazaAccess.${index}.permissions.canRegister`} render={({ field }) => (
                             <FormItem className="flex flex-row items-start space-x-3 space-y-0">
                                 <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
@@ -177,7 +178,13 @@ export function UserFormDialog({ isOpen, onOpenChange, editingUser }: UserFormDi
                         <FormField control={form.control} name={`plazaAccess.${index}.permissions.canExport`} render={({ field }) => (
                              <FormItem className="flex flex-row items-start space-x-3 space-y-0">
                                 <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
-                                <FormLabel className="font-normal">Exportar</FormLabel>
+                                <FormLabel className="font-normal">Exportar Lista</FormLabel>
+                            </FormItem>
+                        )} />
+                        <FormField control={form.control} name={`plazaAccess.${index}.permissions.canExportHistory`} render={({ field }) => (
+                             <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                                <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                                <FormLabel className="font-normal">Exportar Historial</FormLabel>
                             </FormItem>
                         )} />
                       </div>
