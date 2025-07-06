@@ -169,7 +169,7 @@ export default function PlazaPage({ params }: { params: { plaza: string } }) {
               title="Deuda Pendiente" 
               value={`$${stats.totalDebt.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} 
               icon={Wallet} 
-              variant="destructive"
+              valueClassName="text-destructive text-3xl"
           />
           <StatCard 
               title="Total de Clientes" 
