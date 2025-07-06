@@ -8,7 +8,9 @@ import ImportButton from '@/components/dashboard/ImportButton';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from "@/components/ui/progress";
-import { DollarSign, Users, UserCheck, Percent, ArrowRight, Building } from 'lucide-react';
+import { DollarSign, Users, UserCheck, Percent, ArrowRight, Building, Store, Landmark, Warehouse, School, Factory, Castle, Home } from 'lucide-react';
+
+const plazaIcons = [Building, Store, Landmark, Warehouse, School, Factory, Castle, Home];
 
 export default function Dashboard() {
   const { clients, plazas } = useContext(AppContext);
@@ -23,7 +25,7 @@ export default function Dashboard() {
   }, [clients]);
 
   const plazaStats = useMemo(() => {
-    return plazas.map(plaza => {
+    return plazas.map((plaza, index) => {
       const plazaClients = clients.filter(c => c.plaza === plaza);
       const pendingDebt = plazaClients.reduce((acc, client) => acc + client.adeudo, 0);
       const totalClientsInPlaza = plazaClients.length;
@@ -33,7 +35,8 @@ export default function Dashboard() {
       return {
         name: plaza,
         pendingDebt,
-        recoveryRate
+        recoveryRate,
+        icon: plazaIcons[index % plazaIcons.length]
       };
     });
   }, [clients, plazas]);
@@ -68,7 +71,7 @@ export default function Dashboard() {
             <Card key={plaza.name} className="flex flex-col">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                    <Building className="w-5 h-5 text-accent" />
+                    <plaza.icon className="w-5 h-5 text-accent" />
                     {plaza.name}
                 </CardTitle>
                 <CardDescription>Deuda Pendiente: ${plaza.pendingDebt.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</CardDescription>

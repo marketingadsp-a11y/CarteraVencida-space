@@ -2,12 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Rocket, Home, Building, Settings, ShieldCheck, UsersRound } from "lucide-react";
+import { Rocket, Home, Building, Settings, ShieldCheck, UsersRound, Store, Landmark, Warehouse, School, Factory, Castle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useContext } from "react";
 import { AppContext } from "@/contexts/AppContext";
 import { Separator } from "../ui/separator";
+
+const plazaIcons = [Building, Store, Landmark, Warehouse, School, Factory, Castle, Home];
 
 export default function Sidebar() {
   const pathname = usePathname();
@@ -17,10 +19,10 @@ export default function Sidebar() {
 
   const navLinks = [
     { href: "/dashboard", label: "Resumen", icon: Home },
-    ...plazas.map((plaza) => ({
+    ...plazas.map((plaza, index) => ({
       href: `/dashboard/${encodeURIComponent(plaza)}`,
       label: plaza,
-      icon: Building,
+      icon: plazaIcons[index % plazaIcons.length],
     })),
   ];
 

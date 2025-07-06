@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useContext } from 'react';
+import React, { useState, useContext, useRef } from 'react';
 import { AppContext } from '@/contexts/AppContext';
 import { Client } from '@/lib/constants';
 import { useToast } from '@/hooks/use-toast';
@@ -17,7 +17,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Upload, ClipboardPaste, FileUp } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Upload, ClipboardPaste, FileUp, Paperclip } from 'lucide-react';
+import * as XLSX from 'xlsx';
 
 interface ImportDialogProps {
   isOpen: boolean;
@@ -30,51 +32,56 @@ export function ImportDialog({ isOpen, onOpenChange, plazaName }: ImportDialogPr
   const { toast } = useToast();
   const [importMode, setImportMode] = useState<'add' | 'replace'>('add');
   const [textData, setTextData] = useState('');
+  const [fileName, setFileName] = useState('');
   const [isImporting, setIsImporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleImportFromText = () => {
+  const processImportData = (data: (string | number)[][]) => {
     setIsImporting(true);
     try {
-      if (!textData.trim()) {
-        throw new Error("El área de texto está vacía.");
+      if (data.length === 0) {
+        throw new Error("No se encontraron datos para importar.");
       }
 
-      const rows = textData.trim().split('\n');
       let nextId = clients.length > 0 ? Math.max(...clients.map(c => c.id)) + 1 : 1;
       
-      const cleanCurrency = (value: string) => {
-        if (typeof value !== 'string') return '';
-        return value.replace(/[$,]/g, '');
+      const cleanCurrency = (value: any): number => {
+        if (typeof value === 'number') return value;
+        if (typeof value !== 'string') return 0;
+        const cleaned = value.replace(/[$,]/g, '');
+        return parseFloat(cleaned) || 0;
       };
 
-      const newClients: Client[] = rows.map((row, index) => {
-        const columns = row.split('	');
-        if (columns.length !== 10) {
-          throw new Error(`Fila #${index + 1} inválida. Se esperaban 10 columnas, pero se encontraron ${columns.length}.`);
+      const newClients: Client[] = data.map((row, index) => {
+        if (row.length < 10) {
+          throw new Error(`Fila #${index + 1} inválida. Se esperaban 10 columnas, pero se encontraron ${row.length}.`);
         }
-
-        const [fecha, nombre, direccion, telefono, aval, telefonoAval, prestamoStr, pagoStr, vencidosStr, adeudoStr] = columns;
+        
+        const [fecha, nombre, direccion, telefono, aval, telefonoAval, prestamoStr, pagoStr, vencidosStr, adeudoStr] = row;
 
         const newClient: Client = {
           id: nextId++,
           plaza: plazaName,
-          fecha,
-          nombre,
-          direccion,
-          telefono,
-          aval,
-          telefonoAval,
-          prestamo: parseFloat(cleanCurrency(prestamoStr)),
-          pago: parseFloat(cleanCurrency(pagoStr)),
-          vencidos: parseInt(vencidosStr, 10),
-          adeudo: parseFloat(cleanCurrency(adeudoStr)),
+          fecha: String(fecha),
+          nombre: String(nombre),
+          direccion: String(direccion),
+          telefono: String(telefono),
+          aval: String(aval),
+          telefonoAval: String(telefonoAval),
+          prestamo: cleanCurrency(prestamoStr),
+          pago: cleanCurrency(pagoStr),
+          vencidos: parseInt(String(vencidosStr), 10) || 0,
+          adeudo: cleanCurrency(adeudoStr),
           recuperado: false,
         };
+        
+        newClient.recuperado = newClient.adeudo <= 0;
 
-        if (isNaN(newClient.prestamo) || isNaN(newClient.pago) || isNaN(newClient.vencidos) || isNaN(newClient.adeudo)) {
-          throw new Error(`Dato numérico inválido en la fila #${index + 1}. Revise los valores de préstamo, pago, vencidos y adeudo.`);
+        // Basic validation
+        if (!newClient.nombre || !newClient.fecha) {
+            throw new Error(`Datos faltantes en la fila #${index + 1}. Nombre y Fecha son requeridos.`);
         }
-
+        
         return newClient;
       });
 
@@ -90,6 +97,7 @@ export function ImportDialog({ isOpen, onOpenChange, plazaName }: ImportDialogPr
       });
       onOpenChange(false);
       setTextData('');
+      setFileName('');
 
     } catch (error: any) {
       toast({
@@ -101,6 +109,58 @@ export function ImportDialog({ isOpen, onOpenChange, plazaName }: ImportDialogPr
       setIsImporting(false);
     }
   };
+
+  const handleImportFromText = () => {
+    if (!textData.trim()) {
+        toast({ variant: "destructive", title: "Error", description: "El área de texto está vacía." });
+        return;
+    }
+    const rows = textData.trim().split('\n').map(row => row.split('	')); // Tab separated
+    processImportData(rows);
+  };
+  
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setFileName(file.name);
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = e.target?.result;
+        if (!data) throw new Error("No se pudo leer el archivo.");
+        
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        // Using raw:false helps format dates and numbers as strings
+        const jsonData: (string | number)[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false, defval: "" });
+
+        // Remove header row if it looks like one
+        if (jsonData.length > 0 && typeof jsonData[0][0] === 'string' && jsonData[0][0].toUpperCase().includes('FECHA')) {
+          jsonData.shift();
+        }
+        
+        processImportData(jsonData);
+
+      } catch (error: any) {
+        toast({
+          variant: "destructive",
+          title: "Error de Archivo",
+          description: error.message || "No se pudo procesar el archivo Excel.",
+        });
+      } finally {
+        // Reset file input for re-upload
+        if (fileInputRef.current) fileInputRef.current.value = "";
+      }
+    };
+    reader.onerror = () => {
+      toast({ variant: "destructive", title: "Error", description: "No se pudo leer el archivo." });
+    };
+    reader.readAsArrayBuffer(file);
+  };
+
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -129,13 +189,41 @@ export function ImportDialog({ isOpen, onOpenChange, plazaName }: ImportDialogPr
 
           <Tabs defaultValue="paste" className="w-full">
             <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="upload" disabled>
+              <TabsTrigger value="upload">
                 <FileUp className="mr-2" /> Subir Archivo
               </TabsTrigger>
               <TabsTrigger value="paste">
                 <ClipboardPaste className="mr-2" /> Pegar Texto
               </TabsTrigger>
             </TabsList>
+            <TabsContent value="upload" className="pt-4">
+              <div className="grid gap-2">
+                <Label htmlFor="file-upload">Selecciona un archivo Excel (.xlsx, .xls, .csv)</Label>
+                <div className="relative">
+                  <Input 
+                    id="file-upload" 
+                    type="file" 
+                    ref={fileInputRef}
+                    onChange={handleFileChange}
+                    accept=".xlsx, .xls, .csv" 
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" 
+                  />
+                  <div className="flex items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted">
+                    {fileName ? (
+                      <div className="flex items-center gap-2 text-primary">
+                          <Paperclip />
+                          <span className="font-medium">{fileName}</span>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center gap-1 text-muted-foreground">
+                        <Upload className="w-8 h-8"/>
+                        <p>Haz clic para buscar o arrastra el archivo aquí</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </TabsContent>
             <TabsContent value="paste" className="pt-4">
               <div className="grid gap-2">
                 <Label htmlFor="paste-area">
@@ -150,7 +238,6 @@ export function ImportDialog({ isOpen, onOpenChange, plazaName }: ImportDialogPr
                 />
               </div>
               <Button onClick={handleImportFromText} disabled={isImporting} className="mt-4 w-full">
-                <Upload className="mr-2" />
                 {isImporting ? 'Importando...' : 'Importar desde Texto'}
               </Button>
             </TabsContent>

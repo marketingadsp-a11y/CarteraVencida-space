@@ -17,9 +17,11 @@ import {
   SheetContent,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { Menu, CircleUser, Rocket, Home, Building, LogOut, Settings, ShieldCheck, UsersRound } from "lucide-react";
+import { Menu, CircleUser, Rocket, Home, Building, LogOut, Settings, ShieldCheck, UsersRound, Store, Landmark, Warehouse, School, Factory, Castle } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
+
+const plazaIcons = [Building, Store, Landmark, Warehouse, School, Factory, Castle, Home];
 
 export default function Header() {
   const { logout, plazas, currentUser, appName } = useContext(AppContext);
@@ -29,10 +31,10 @@ export default function Header() {
 
   const navLinks = [
     { href: "/dashboard", label: "Resumen", icon: Home },
-    ...plazas.map((plaza) => ({
+    ...plazas.map((plaza, index) => ({
       href: `/dashboard/${encodeURIComponent(plaza)}`,
       label: plaza,
-      icon: Building,
+      icon: plazaIcons[index % plazaIcons.length],
     })),
   ];
   
