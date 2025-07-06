@@ -1,3 +1,10 @@
+export type Payment = {
+  fecha: string;
+  monto: number;
+  saldoAnterior: number;
+  saldoNuevo: number;
+};
+
 export type Client = {
   id: number;
   plaza: string;
@@ -12,6 +19,7 @@ export type Client = {
   vencidos: number;
   adeudo: number;
   recuperado?: boolean;
+  historialPagos?: Payment[];
 };
 
 export type Admin = {

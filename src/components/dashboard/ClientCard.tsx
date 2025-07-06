@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Phone, User, Edit, DollarSign } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 
-export function ClientCard({ client }: { client: Client }) {
+export function ClientCard({ client, onEdit, onPay }: { client: Client, onEdit: (client: Client) => void, onPay: (client: Client) => void }) {
   return (
     <Card className="flex flex-col rounded-xl shadow-md transition-shadow hover:shadow-lg">
       <CardHeader className="pb-4">
@@ -43,10 +43,10 @@ export function ClientCard({ client }: { client: Client }) {
         </div>
       </CardContent>
       <CardFooter className="gap-2 p-4">
-        <Button variant="outline" className="w-full">
+        <Button variant="outline" className="w-full" onClick={() => onEdit(client)}>
           <Edit /> Ver / Editar
         </Button>
-        <Button className="w-full">
+        <Button className="w-full" onClick={() => onPay(client)}>
           <DollarSign /> Abonar
         </Button>
       </CardFooter>

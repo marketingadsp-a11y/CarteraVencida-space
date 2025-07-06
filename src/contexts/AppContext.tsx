@@ -2,7 +2,7 @@
 
 import React, { createContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { Client, Admin, User, UserPlazaAccess } from '@/lib/constants';
+import { Client, Admin, User, UserPlazaAccess, Payment } from '@/lib/constants';
 
 const INITIAL_PLAZAS = [
   "AUTLAN PREPA",
@@ -28,6 +28,8 @@ interface AppContextType {
   clients: Client[];
   setClients: React.Dispatch<React.SetStateAction<Client[]>>;
   addClient: (clientData: Omit<Client, 'id'>) => void;
+  updateClient: (id: number, clientData: Partial<Omit<Client, 'id'>>) => void;
+  addPayment: (clientId: number, monto: number) => void;
   toggleClientRecovered: (id: number) => void;
   plazas: string[];
   addPlaza: (plazaName: string) => boolean;
@@ -52,6 +54,8 @@ export const AppContext = createContext<AppContextType>({
   clients: [],
   setClients: () => {},
   addClient: () => {},
+  updateClient: () => {},
+  addPayment: () => {},
   toggleClientRecovered: () => {},
   plazas: [],
   addPlaza: () => false,
@@ -138,9 +142,45 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
           ...clientData,
           id: nextId,
           recuperado: clientData.recuperado ?? false,
+          historialPagos: [],
         };
         return [...prev, newClient].sort((a, b) => a.nombre.localeCompare(b.nombre));
     });
+  }, []);
+  
+  const updateClient = useCallback((id: number, clientData: Partial<Omit<Client, 'id'>>) => {
+    setClients(prev =>
+      prev.map(client =>
+        client.id === id
+          ? { ...client, ...clientData, recuperado: clientData.adeudo !== undefined ? clientData.adeudo <= 0 : client.recuperado }
+          : client
+      )
+    );
+  }, []);
+
+  const addPayment = useCallback((clientId: number, monto: number) => {
+    setClients(prev =>
+      prev.map(client => {
+        if (client.id === clientId) {
+          const saldoAnterior = client.adeudo;
+          const saldoNuevo = Math.max(0, saldoAnterior - monto);
+          const newPayment: Payment = {
+            fecha: new Date().toLocaleDateString('es-GB'),
+            monto,
+            saldoAnterior,
+            saldoNuevo,
+          };
+          const historialPagos = [...(client.historialPagos || []), newPayment];
+          return {
+            ...client,
+            adeudo: saldoNuevo,
+            recuperado: saldoNuevo <= 0,
+            historialPagos,
+          };
+        }
+        return client;
+      })
+    );
   }, []);
 
   const addPlaza = useCallback((plazaName: string) => {
@@ -242,6 +282,8 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     clients,
     setClients,
     addClient,
+    updateClient,
+    addPayment,
     toggleClientRecovered,
     plazas,
     addPlaza,
@@ -258,7 +300,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   }), [
     currentUser, isLoading, login, logout, clients, plazas, admins, users,
     addClient, toggleClientRecovered, addPlaza, updatePlaza, deletePlaza,
-    addAdmin, updateAdmin, deleteAdmin, addUser, updateUser, deleteUser
+    addAdmin, updateAdmin, deleteAdmin, addUser, updateUser, deleteUser, updateClient, addPayment
   ]);
 
   return (

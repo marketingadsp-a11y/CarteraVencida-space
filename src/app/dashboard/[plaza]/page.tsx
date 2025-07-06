@@ -17,6 +17,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ImportDialog } from '@/components/dashboard/ImportDialog';
 import { ClientFormDialog } from '@/components/dashboard/ClientFormDialog';
+import { PaymentDialog } from '@/components/dashboard/PaymentDialog';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
@@ -26,7 +27,10 @@ export default function PlazaPage({ params }: { params: { plaza: string } }) {
   const plazaName = decodeURIComponent(params.plaza);
   const [searchTerm, setSearchTerm] = useState('');
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
-  const [isRegisterDialogOpen, setIsRegisterDialogOpen] = useState(false);
+  const [isClientFormOpen, setIsClientFormOpen] = useState(false);
+  const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
+  const [editingClient, setEditingClient] = useState<Client | null>(null);
+  const [payingClient, setPayingClient] = useState<Client | null>(null);
 
   const permissions = useMemo(() => {
     const defaultPermissions = { canRegister: false, canImport: false, canExport: false, hasAccess: false };
@@ -70,6 +74,21 @@ export default function PlazaPage({ params }: { params: { plaza: string } }) {
     
     return { totalClients, totalDebt, recoveredClients };
   }, [plazaClients]);
+  
+  const handleOpenRegister = () => {
+    setEditingClient(null);
+    setIsClientFormOpen(true);
+  };
+
+  const handleOpenEdit = (client: Client) => {
+    setEditingClient(client);
+    setIsClientFormOpen(true);
+  };
+
+  const handleOpenPayment = (client: Client) => {
+    setPayingClient(client);
+    setIsPaymentDialogOpen(true);
+  };
 
   const handleExportPDF = () => {
     const doc = new jsPDF({ orientation: 'landscape' });
@@ -182,7 +201,7 @@ export default function PlazaPage({ params }: { params: { plaza: string } }) {
                               onChange={(e) => setSearchTerm(e.target.value)}
                           />
                       </div>
-                      {permissions.canRegister && <Button onClick={() => setIsRegisterDialogOpen(true)}><UserPlus /> Registrar</Button>}
+                      {permissions.canRegister && <Button onClick={handleOpenRegister}><UserPlus /> Registrar</Button>}
                       {permissions.canImport && <Button onClick={() => setIsImportDialogOpen(true)}><Upload /> Importar</Button>}
                       {permissions.canExport && (
                         <DropdownMenu>
@@ -204,7 +223,7 @@ export default function PlazaPage({ params }: { params: { plaza: string } }) {
               {filteredClients.length > 0 ? (
                   <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                   {filteredClients.map(client => (
-                      <ClientCard key={client.id} client={client} />
+                      <ClientCard key={client.id} client={client} onEdit={handleOpenEdit} onPay={handleOpenPayment}/>
                   ))}
                   </div>
               ) : (
@@ -219,7 +238,17 @@ export default function PlazaPage({ params }: { params: { plaza: string } }) {
         </Card>
       </div>
       {permissions.canImport && <ImportDialog isOpen={isImportDialogOpen} onOpenChange={setIsImportDialogOpen} plazaName={plazaName} />}
-      {permissions.canRegister && <ClientFormDialog isOpen={isRegisterDialogOpen} onOpenChange={setIsRegisterDialogOpen} plazaName={plazaName} />}
+      <ClientFormDialog 
+        isOpen={isClientFormOpen} 
+        onOpenChange={setIsClientFormOpen} 
+        plazaName={plazaName}
+        editingClient={editingClient}
+      />
+      <PaymentDialog
+        isOpen={isPaymentDialogOpen}
+        onOpenChange={setIsPaymentDialogOpen}
+        client={payingClient}
+      />
     </>
   );
 }
