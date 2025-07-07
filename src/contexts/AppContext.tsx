@@ -33,6 +33,7 @@ interface AppContextType {
   addClient: (clientData: Omit<Client, 'id' | 'recuperado' | 'historialPagos'>) => Promise<void>;
   updateClient: (id: string, clientData: Partial<Omit<Client, 'id'>>) => Promise<void>;
   addPayment: (clientId: string, monto: number) => Promise<void>;
+  deleteClientsByPlaza: (plazaName: string) => Promise<void>;
   plazas: string[];
   userPlazas: string[];
   addPlaza: (plazaName: string) => Promise<boolean>;
@@ -62,6 +63,7 @@ export const AppContext = createContext<AppContextType>({
   addClient: async () => {},
   updateClient: async () => {},
   addPayment: async () => {},
+  deleteClientsByPlaza: async () => {},
   plazas: [],
   userPlazas: [],
   addPlaza: async () => false,
@@ -260,6 +262,19 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }, []);
 
+  const deleteClientsByPlaza = useCallback(async (plazaName: string) => {
+    if (!db) return;
+    const q = query(collection(db, 'clients'), where('plaza', '==', plazaName));
+    const snapshot = await getDocs(q);
+    if (snapshot.empty) return;
+
+    const batch = writeBatch(db);
+    snapshot.forEach(doc => {
+      batch.delete(doc.ref);
+    });
+    await batch.commit();
+  }, []);
+
   const addPlaza = useCallback(async (plazaName: string) => {
     if (!db) return false;
     const q = query(collection(db, 'plazas'), where('name', '==', plazaName));
@@ -384,6 +399,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     addClient,
     updateClient,
     addPayment,
+    deleteClientsByPlaza,
     plazas,
     userPlazas,
     addPlaza,

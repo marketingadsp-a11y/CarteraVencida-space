@@ -5,7 +5,7 @@ import { AppContext } from '@/contexts/AppContext';
 import { Client, User } from '@/lib/constants';
 import { ClientCard } from '@/components/dashboard/ClientCard';
 import StatCard from '@/components/dashboard/StatCard';
-import { Wallet, Users, UserCheck, Search, UserPlus, Upload, MoreVertical } from 'lucide-react';
+import { Wallet, Users, UserCheck, Search, UserPlus, Upload, MoreVertical, Trash2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import {
@@ -14,6 +14,17 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ImportDialog } from '@/components/dashboard/ImportDialog';
 import { ClientFormDialog } from '@/components/dashboard/ClientFormDialog';
@@ -21,9 +32,11 @@ import { PaymentDialog } from '@/components/dashboard/PaymentDialog';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
+import { useToast } from '@/hooks/use-toast';
 
 export default function PlazaPage({ params }: { params: { plaza: string } }) {
-  const { clients, currentUser } = useContext(AppContext);
+  const { clients, currentUser, deleteClientsByPlaza } = useContext(AppContext);
+  const { toast } = useToast();
   const plazaName = decodeURIComponent(params.plaza);
   const [searchTerm, setSearchTerm] = useState('');
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
@@ -32,13 +45,16 @@ export default function PlazaPage({ params }: { params: { plaza: string } }) {
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [payingClient, setPayingClient] = useState<Client | null>(null);
 
+  const isUserAdmin = useMemo(() => {
+    if (!currentUser) return false;
+    return !('plazas' in currentUser);
+  }, [currentUser]);
+
   const permissions = useMemo(() => {
     const defaultPermissions = { canRegister: false, canImport: false, canExport: false, hasAccess: false };
     if (!currentUser) return defaultPermissions;
 
-    const isRegularUser = 'plazas' in currentUser;
-
-    if (!isRegularUser) { // It's an Admin
+    if (isUserAdmin) { // It's an Admin
       return { canRegister: true, canImport: true, canExport: true, canExportHistory: true, hasAccess: true };
     }
     
@@ -51,7 +67,7 @@ export default function PlazaPage({ params }: { params: { plaza: string } }) {
     }
 
     return defaultPermissions;
-  }, [currentUser, plazaName]);
+  }, [currentUser, plazaName, isUserAdmin]);
 
   const plazaClients = useMemo(() => {
     return clients.filter(client => client.plaza === plazaName);
@@ -88,6 +104,14 @@ export default function PlazaPage({ params }: { params: { plaza: string } }) {
   const handleOpenPayment = (client: Client) => {
     setPayingClient(client);
     setIsPaymentDialogOpen(true);
+  };
+
+  const handleDeleteAllClients = async () => {
+    await deleteClientsByPlaza(plazaName);
+    toast({
+        title: "Clientes eliminados",
+        description: `Todos los clientes de la plaza "${plazaName}" han sido eliminados.`,
+    });
   };
 
   const handleExportPDF = () => {
@@ -205,6 +229,30 @@ export default function PlazaPage({ params }: { params: { plaza: string } }) {
                       </div>
                       {permissions.canRegister && <Button onClick={handleOpenRegister}><UserPlus /> Registrar</Button>}
                       {permissions.canImport && <Button onClick={() => setIsImportDialogOpen(true)}><Upload /> Importar</Button>}
+                      
+                      {isUserAdmin && filteredClients.length > 0 && (
+                        <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <Button variant="destructive"><Trash2 /> Eliminar Todos</Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                <AlertDialogTitle>¿Estás absolutamente seguro?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    Esta acción es irreversible. Se eliminarán permanentemente <strong>todos los {filteredClients.length} clientes</strong> de la plaza "{plazaName}".
+                                    ¿Deseas continuar?
+                                </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                <AlertDialogAction onClick={handleDeleteAllClients} className="bg-destructive hover:bg-destructive/90">
+                                    Sí, eliminar todos
+                                </AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+                      )}
+
                       {permissions.canExport && (
                         <DropdownMenu>
                         <DropdownMenuTrigger asChild>
