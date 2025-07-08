@@ -17,7 +17,7 @@ import {
   SheetContent,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { Menu, CircleUser, Rocket, Home, Building, LogOut, Settings, ShieldCheck, UsersRound, Store, Landmark, Warehouse, School, Factory, Castle } from "lucide-react";
+import { Menu, CircleUser, Rocket, Home, Building, LogOut, Settings, ShieldCheck, UsersRound, Store, Landmark, Warehouse, School, Factory, Castle, ArrowLeft } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 
@@ -29,6 +29,7 @@ export default function Header() {
   const router = useRouter();
 
   const isUserAdmin = currentUser && 'username' in currentUser && !('plazas' in currentUser);
+  const isOnPlazaPage = /^\/dashboard\/[^/]+$/.test(pathname);
 
   const navLinks = [
     { href: "/dashboard", label: "Resumen", icon: Home },
@@ -105,6 +106,14 @@ export default function Header() {
           </SheetContent>
         </Sheet>
       </nav>
+      {isOnPlazaPage && (
+        <Link href="/dashboard" className="md:hidden">
+          <Button variant="ghost" size="icon">
+            <ArrowLeft className="h-5 w-5" />
+            <span className="sr-only">Volver a Resumen</span>
+          </Button>
+        </Link>
+      )}
       <div className="flex w-full items-center justify-end gap-4 md:ml-auto md:gap-2 lg:gap-4">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
