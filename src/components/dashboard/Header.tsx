@@ -18,7 +18,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { Menu, CircleUser, Rocket, Home, Building, LogOut, Settings, ShieldCheck, UsersRound, Store, Landmark, Warehouse, School, Factory, Castle } from "lucide-react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 const plazaIcons = [Building, Store, Landmark, Warehouse, School, Factory, Castle, Home];
@@ -26,6 +26,7 @@ const plazaIcons = [Building, Store, Landmark, Warehouse, School, Factory, Castl
 export default function Header() {
   const { logout, userPlazas, currentUser, appName } = useContext(AppContext);
   const pathname = usePathname();
+  const router = useRouter();
 
   const isUserAdmin = currentUser && 'username' in currentUser && !('plazas' in currentUser);
 
@@ -80,26 +81,6 @@ export default function Header() {
                   })}
               </nav>
             </div>
-            {isUserAdmin && (
-              <div className="p-4 pt-0">
-                <p className="px-3 py-2 text-xs font-semibold text-muted-foreground tracking-wider">GESTIÓN</p>
-                <nav className="grid gap-2 text-lg font-medium">
-                  {managementLinks.map(({ href, label, icon: Icon }) => {
-                    const isActive = pathname.startsWith(href);
-                    return (
-                      <Link
-                        key={href}
-                        href={href}
-                        className={cn("flex items-center gap-4 rounded-xl px-3 py-2 text-muted-foreground hover:text-foreground", isActive && "bg-muted text-foreground")}
-                      >
-                        <Icon className="h-5 w-5" />
-                        {label}
-                      </Link>
-                    )
-                  })}
-                </nav>
-              </div>
-            )}
           </SheetContent>
         </Sheet>
       </nav>
@@ -114,6 +95,17 @@ export default function Header() {
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>{currentUser?.username}</DropdownMenuLabel>
             <DropdownMenuSeparator />
+             {isUserAdmin && (
+              <>
+                {managementLinks.map(({ href, label, icon: Icon }) => (
+                  <DropdownMenuItem key={href} onClick={() => router.push(href)} className="cursor-pointer">
+                    <Icon className="mr-2 h-4 w-4" />
+                    {label}
+                  </DropdownMenuItem>
+                ))}
+                <DropdownMenuSeparator />
+              </>
+            )}
             <DropdownMenuItem onClick={logout} className="cursor-pointer">
               <LogOut className="mr-2 h-4 w-4" />
               Cerrar Sesión
