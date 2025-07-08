@@ -80,6 +80,27 @@ export default function Header() {
                       )
                   })}
               </nav>
+
+              {isUserAdmin && (
+                <>
+                  <p className="px-3 py-2 mt-4 text-xs font-semibold text-muted-foreground tracking-wider">GESTIÓN</p>
+                  <nav className="grid gap-2 text-lg font-medium">
+                    {managementLinks.map(({ href, label, icon: Icon }) => {
+                      const isActive = pathname.startsWith(href);
+                      return (
+                        <Link
+                          key={href}
+                          href={href}
+                          className={cn("flex items-center gap-4 rounded-xl px-3 py-2 text-muted-foreground hover:text-foreground", isActive && "bg-muted text-foreground")}
+                        >
+                          <Icon className="h-5 w-5" />
+                          {label}
+                        </Link>
+                      );
+                    })}
+                  </nav>
+                </>
+              )}
             </div>
           </SheetContent>
         </Sheet>
