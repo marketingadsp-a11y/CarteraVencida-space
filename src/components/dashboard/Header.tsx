@@ -66,7 +66,7 @@ export default function Header() {
               <p className="px-3 py-2 text-xs font-semibold text-muted-foreground tracking-wider">CARTERA</p>
               <nav className="grid gap-2 text-lg font-medium">
                   {navLinks.map(({ href, label, icon: Icon }) => {
-                      const isActive = pathname === href || pathname.startsWith(href) && href !== "/dashboard";
+                      const isActive = href === "/dashboard" ? pathname === href : pathname.startsWith(href);
                       return (
                           <Link
                               key={href}
