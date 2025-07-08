@@ -13,6 +13,13 @@ const spaceGrotesk = Space_Grotesk({
 export const metadata: Metadata = {
   title: "Cartera",
   description: "Gestión de cartera vencida de clientes",
+  manifest: "/manifest.json",
+  themeColor: "#191970",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Planet Cartera",
+  },
 };
 
 export default function RootLayout({
