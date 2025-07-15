@@ -66,8 +66,18 @@ export default function Dashboard() {
               className="bg-gradient-to-br from-red-900 to-rose-500 text-destructive-foreground"
             />
             <StatCard title="Clientes Totales" value={stats.totalClients.toString()} icon={Users} />
-            <StatCard title="Clientes Recuperados" value={stats.recoveredClients.toString()} icon={UserCheck} />
-            <StatCard title="Tasa de Recuperación" value={`${stats.recoveryRate.toFixed(1)}%`} icon={Percent} />
+            <StatCard 
+              title="Clientes Recuperados" 
+              value={stats.recoveredClients.toString()} 
+              icon={UserCheck} 
+              className="bg-gradient-to-br from-green-600 to-emerald-500 text-white"
+            />
+            <StatCard 
+              title="Tasa de Recuperación" 
+              value={`${stats.recoveryRate.toFixed(1)}%`} 
+              icon={Percent} 
+              className="bg-gradient-to-br from-primary to-blue-400 text-primary-foreground"
+            />
           </div>
         </>
       )}
@@ -102,7 +112,7 @@ export default function Dashboard() {
               </CardContent>
               <CardFooter>
                  <Link href={`/dashboard/${encodeURIComponent(plaza.name)}`} className="w-full">
-                    <Button className="w-full">
+                    <Button className="w-full bg-primary hover:bg-primary/90">
                         Ver Detalles <ArrowRight className="ml-2 h-4 w-4" />
                     </Button>
                 </Link>

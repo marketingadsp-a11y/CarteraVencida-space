@@ -199,7 +199,7 @@ export default function PlazaPage({ params }: { params: { plaza: string } }) {
               value={`$${stats.totalDebt.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} 
               icon={Wallet}
               variant="destructive"
-              className="bg-gradient-to-br from-red-900 to-rose-500"
+              className="bg-gradient-to-br from-red-900 to-rose-500 text-destructive-foreground"
               valueClassName="text-3xl"
           />
           <StatCard 
@@ -212,6 +212,7 @@ export default function PlazaPage({ params }: { params: { plaza: string } }) {
               value={stats.recoveredClients.toString()} 
               icon={UserCheck} 
               description={`de ${stats.totalClients} clientes`}
+              className="bg-gradient-to-br from-green-600 to-emerald-500 text-white"
           />
         </div>
 
