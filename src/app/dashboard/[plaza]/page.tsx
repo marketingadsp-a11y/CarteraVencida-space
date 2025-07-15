@@ -74,14 +74,19 @@ export default function PlazaPage({ params }: { params: { plaza: string } }) {
   }, [clients, plazaName]);
 
   const filteredClients = useMemo(() => {
-    if (!searchTerm) return plazaClients;
-    return plazaClients.filter(
-      client => 
-        client.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        client.direccion.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        client.telefono.includes(searchTerm)
-    );
+    const searchedClients = searchTerm
+      ? plazaClients.filter(
+          client =>
+            client.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            client.direccion.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            client.telefono.includes(searchTerm)
+        )
+      : plazaClients;
+      
+    // Sort clients to show recovered ones at the end
+    return searchedClients.sort((a, b) => (a.recuperado ? 1 : 0) - (b.recuperado ? 1 : 0));
   }, [plazaClients, searchTerm]);
+
 
   const stats = useMemo(() => {
     const totalClients = plazaClients.length;

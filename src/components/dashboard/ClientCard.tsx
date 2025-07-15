@@ -4,20 +4,31 @@ import { Client } from '@/lib/constants';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Phone, User, Edit, DollarSign } from 'lucide-react';
+import { Phone, User, Edit, DollarSign, CheckCircle2 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
+import { cn } from '@/lib/utils';
 
 export function ClientCard({ client, onEdit, onPay }: { client: Client, onEdit: (client: Client) => void, onPay: (client: Client) => void }) {
+  const isRecovered = client.recuperado;
+  
   return (
-    <Card className="flex flex-col rounded-xl shadow-md transition-all duration-200 hover:shadow-lg hover:border-primary">
+    <Card className={cn(
+        "flex flex-col rounded-xl shadow-md transition-all duration-200 hover:shadow-lg hover:border-primary",
+        isRecovered && "bg-green-50 dark:bg-green-900/20"
+      )}>
       <CardHeader className="pb-4">
         <div className="flex items-start justify-between gap-2">
           <CardTitle className="text-base font-bold uppercase leading-tight">{client.nombre}</CardTitle>
-          {!client.recuperado && (
-            <Badge variant="outline" className="border-destructive text-destructive shrink-0">
-              Pendiente
-            </Badge>
-          )}
+          <Badge 
+            variant={isRecovered ? "default" : "outline"} 
+            className={cn(
+              isRecovered ? "bg-green-600 border-green-600 text-white" : "border-destructive text-destructive",
+              "shrink-0"
+            )}
+          >
+            {isRecovered && <CheckCircle2 className="mr-1 h-3 w-3"/>}
+            {isRecovered ? 'Recuperado' : 'Pendiente'}
+          </Badge>
         </div>
         <p className="text-sm text-muted-foreground">{client.direccion}</p>
       </CardHeader>
@@ -38,15 +49,20 @@ export function ClientCard({ client, onEdit, onPay }: { client: Client, onEdit: 
             </div>
             <div className="text-right">
                 <p className="text-xs text-muted-foreground">Adeudo</p>
-                <p className="font-bold text-lg text-destructive">${client.adeudo.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
+                <p className={cn(
+                    "font-bold text-lg",
+                    isRecovered ? "text-green-700" : "text-destructive"
+                )}>
+                  ${client.adeudo.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                </p>
             </div>
         </div>
       </CardContent>
       <CardFooter className="gap-2 p-4">
         <Button variant="outline" className="w-full" onClick={() => onEdit(client)}>
-          <Edit /> Editar
+          <Edit /> Ver
         </Button>
-        <Button className="w-full" onClick={() => onPay(client)}>
+        <Button className="w-full" onClick={() => onPay(client)} disabled={isRecovered}>
           <DollarSign /> Abonar
         </Button>
       </CardFooter>
