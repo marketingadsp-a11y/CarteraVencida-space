@@ -49,7 +49,6 @@ export default function Dashboard() {
   
   const handleExportAllExcel = () => {
     const dataToExport = clients.map(c => ({
-      // Note: The order should match the import logic
       'FECHA': c.fecha,
       'PLAZA': c.plaza,
       'NOMBRE': c.nombre,
@@ -60,17 +59,16 @@ export default function Dashboard() {
       'PRESTAMO': c.prestamo,
       'PAGO': c.pago,
       'NO.VENC.': c.vencidos,
-      'ADEUDO': c.adeudo
+      'ADEUDO': c.adeudo,
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(dataToExport);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Todos_los_Clientes');
     
-    // Set column widths for better readability
     worksheet['!cols'] = [
       { wch: 12 }, // FECHA
-      { wch: 18 }, // PLAZA
+      { wch: 20 }, // PLAZA
       { wch: 30 }, // NOMBRE
       { wch: 35 }, // DIRECCION
       { wch: 15 }, // TELEFONO
