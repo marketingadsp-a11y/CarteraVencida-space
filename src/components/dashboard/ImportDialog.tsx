@@ -36,13 +36,37 @@ export function ImportDialog({ isOpen, onOpenChange, plazaName }: ImportDialogPr
   const [isImporting, setIsImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const processAndImportData = async (data: (string | number)[][]) => {
+  const processAndImportData = async (data: (string | number)[][], headers: string[]) => {
     setIsImporting(true);
     try {
       if (data.length === 0) {
         throw new Error("No se encontraron datos para importar.");
       }
 
+      const lowerCaseHeaders = headers.map(h => String(h).toLowerCase());
+      
+      const requiredHeaders = ['fecha', 'nombre', 'direccion', 'telefono', 'aval', 'tel. aval', 'prestamo', 'pago', 'no.venc.', 'adeudo'];
+      const getIndex = (key: string) => lowerCaseHeaders.indexOf(key);
+
+      const headerMap = {
+        fecha: getIndex('fecha'),
+        plaza: getIndex('plaza'),
+        nombre: getIndex('nombre'),
+        direccion: getIndex('direccion'),
+        telefono: getIndex('telefono'),
+        aval: getIndex('aval'),
+        telefonoAval: getIndex('tel. aval'),
+        prestamo: getIndex('prestamo'),
+        pago: getIndex('pago'),
+        vencidos: getIndex('no.venc.'),
+        adeudo: getIndex('adeudo'),
+      };
+
+      const missingHeaders = requiredHeaders.filter(key => headerMap[key as keyof typeof headerMap] === -1);
+      if(missingHeaders.length > 0) {
+        throw new Error(`Faltan las siguientes columnas en el archivo: ${missingHeaders.join(', ')}`);
+      }
+      
       const cleanCurrency = (value: any): number => {
         if (typeof value === 'number') return value;
         if (typeof value !== 'string') return 0;
@@ -51,25 +75,23 @@ export function ImportDialog({ isOpen, onOpenChange, plazaName }: ImportDialogPr
       };
 
       const newClients: Omit<Client, 'id'>[] = data.map((row, index) => {
-        if (row.length < 10) {
-          console.warn(`Fila #${index + 1} incompleta, será ignorada.`);
+        if (row.length < requiredHeaders.length) {
+          console.warn(`Fila #${index + 2} incompleta, será ignorada.`);
           return null;
         }
         
-        const [fecha, nombre, direccion, telefono, aval, telefonoAval, prestamoStr, pagoStr, vencidosStr, adeudoStr] = row;
-
         const newClient: Omit<Client, 'id'> = {
-          plaza: plazaName,
-          fecha: String(fecha),
-          nombre: String(nombre),
-          direccion: String(direccion),
-          telefono: String(telefono).replace(/\s/g, ''),
-          aval: String(aval),
-          telefonoAval: String(telefonoAval).replace(/\s/g, ''),
-          prestamo: cleanCurrency(prestamoStr),
-          pago: cleanCurrency(pagoStr),
-          vencidos: parseInt(String(vencidosStr), 10) || 0,
-          adeudo: cleanCurrency(adeudoStr),
+          plaza: headerMap.plaza !== -1 ? String(row[headerMap.plaza]) : plazaName,
+          fecha: String(row[headerMap.fecha]),
+          nombre: String(row[headerMap.nombre]),
+          direccion: String(row[headerMap.direccion]),
+          telefono: String(row[headerMap.telefono]).replace(/\s/g, ''),
+          aval: String(row[headerMap.aval]),
+          telefonoAval: String(row[headerMap.telefonoAval]).replace(/\s/g, ''),
+          prestamo: cleanCurrency(row[headerMap.prestamo]),
+          pago: cleanCurrency(row[headerMap.pago]),
+          vencidos: parseInt(String(row[headerMap.vencidos]), 10) || 0,
+          adeudo: cleanCurrency(row[headerMap.adeudo]),
           recuperado: false,
           historialPagos: [],
         };
@@ -77,7 +99,7 @@ export function ImportDialog({ isOpen, onOpenChange, plazaName }: ImportDialogPr
         newClient.recuperado = newClient.adeudo <= 0;
 
         if (!newClient.nombre || !newClient.fecha) {
-            console.warn(`Datos faltantes en la fila #${index + 1} (Nombre o Fecha), será ignorada.`);
+            console.warn(`Datos faltantes en la fila #${index + 2} (Nombre o Fecha), será ignorada.`);
             return null;
         }
         
@@ -115,7 +137,8 @@ export function ImportDialog({ isOpen, onOpenChange, plazaName }: ImportDialogPr
         return;
     }
     const rows = textData.trim().split('\n').map(row => row.split('	'));
-    processAndImportData(rows);
+    const headers = ["FECHA", "PLAZA", "NOMBRE", "DIRECCION", "TELEFONO", "AVAL", "TEL. AVAL", "PRESTAMO", "PAGO", "NO.VENC.", "ADEUDO"];
+    processAndImportData(rows, headers);
   };
   
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -136,11 +159,12 @@ export function ImportDialog({ isOpen, onOpenChange, plazaName }: ImportDialogPr
         const worksheet = workbook.Sheets[sheetName];
         const jsonData: (string | number)[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false, defval: "" });
 
-        if (jsonData.length > 0 && typeof jsonData[0][0] === 'string' && jsonData[0][0].toUpperCase().includes('FECHA')) {
-          jsonData.shift();
+        const headers = jsonData.length > 0 ? jsonData.shift() as string[] : [];
+        if (headers.length === 0) {
+          throw new Error("El archivo está vacío o no tiene encabezados.");
         }
         
-        processAndImportData(jsonData);
+        processAndImportData(jsonData, headers);
 
       } catch (error: any) {
         toast({ variant: "destructive", title: "Error de Archivo", description: error.message || "No se pudo procesar el archivo Excel." });
@@ -163,7 +187,7 @@ export function ImportDialog({ isOpen, onOpenChange, plazaName }: ImportDialogPr
         <DialogHeader>
           <DialogTitle>Importar Clientes</DialogTitle>
           <DialogDescription>
-            Sube un archivo o pega texto para añadir nuevos clientes. Las columnas deben estar en este orden: FECHA, NOMBRE, DIRECCION, TELEFONO, AVAL, TEL. AVAL, PRESTAMO, PAGO, NO.VENC., ADEUDO.
+            Sube un archivo o pega texto para añadir nuevos clientes. El archivo debe contener los encabezados: FECHA, PLAZA, NOMBRE, DIRECCION, TELEFONO, AVAL, TEL. AVAL, PRESTAMO, PAGO, NO.VENC., ADEUDO.
           </DialogDescription>
         </DialogHeader>
 
@@ -182,7 +206,7 @@ export function ImportDialog({ isOpen, onOpenChange, plazaName }: ImportDialogPr
             </RadioGroup>
           </div>
 
-          <Tabs defaultValue="paste" className="w-full">
+          <Tabs defaultValue="upload" className="w-full">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="upload">
                 <FileUp className="mr-2" /> Subir Archivo
@@ -228,11 +252,11 @@ export function ImportDialog({ isOpen, onOpenChange, plazaName }: ImportDialogPr
             <TabsContent value="paste" className="pt-4">
               <div className="grid gap-2">
                 <Label htmlFor="paste-area">
-                  Pega aquí los datos de tu hoja de cálculo. Las columnas deben estar separadas por tabulaciones y las filas por saltos de línea.
+                  Pega aquí los datos de tu hoja de cálculo. La primera fila debe ser los encabezados. Las columnas deben estar separadas por tabulaciones.
                 </Label>
                 <Textarea
                   id="paste-area"
-                  placeholder={`15/05/2024	Juan Perez	Calle Falsa 123...`}
+                  placeholder={`FECHA	PLAZA	NOMBRE	DIRECCION...`}
                   rows={8}
                   value={textData}
                   onChange={(e) => setTextData(e.target.value)}

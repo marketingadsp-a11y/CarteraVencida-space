@@ -7,7 +7,8 @@ import StatCard from '@/components/dashboard/StatCard';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from "@/components/ui/progress";
-import { DollarSign, Users, UserCheck, Percent, ArrowRight, Building, Store, Landmark, Warehouse, School, Factory, Castle, Home } from 'lucide-react';
+import { DollarSign, Users, UserCheck, Percent, ArrowRight, Building, Store, Landmark, Warehouse, School, Factory, Castle, Home, Download } from 'lucide-react';
+import * as XLSX from 'xlsx';
 
 const plazaIcons = [Building, Store, Landmark, Warehouse, School, Factory, Castle, Home];
 
@@ -46,6 +47,44 @@ export default function Dashboard() {
     });
   }, [clients, userPlazas]);
   
+  const handleExportAllExcel = () => {
+    const dataToExport = clients.map(c => ({
+      // Note: The order should match the import logic
+      'FECHA': c.fecha,
+      'PLAZA': c.plaza,
+      'NOMBRE': c.nombre,
+      'DIRECCION': c.direccion,
+      'TELEFONO': c.telefono,
+      'AVAL': c.aval,
+      'TEL. AVAL': c.telefonoAval,
+      'PRESTAMO': c.prestamo,
+      'PAGO': c.pago,
+      'NO.VENC.': c.vencidos,
+      'ADEUDO': c.adeudo
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Todos_los_Clientes');
+    
+    // Set column widths for better readability
+    worksheet['!cols'] = [
+      { wch: 12 }, // FECHA
+      { wch: 18 }, // PLAZA
+      { wch: 30 }, // NOMBRE
+      { wch: 35 }, // DIRECCION
+      { wch: 15 }, // TELEFONO
+      { wch: 30 }, // AVAL
+      { wch: 15 }, // TEL. AVAL
+      { wch: 10 }, // PRESTAMO
+      { wch: 10 }, // PAGO
+      { wch: 10 }, // NO.VENC.
+      { wch: 10 }, // ADEUDO
+    ];
+
+    XLSX.writeFile(workbook, `cartera_total_${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
+
   return (
     <div className="flex flex-col gap-8">
       {isUserAdmin && (
@@ -55,6 +94,11 @@ export default function Dashboard() {
               <h1 className="text-3xl font-bold font-headline tracking-tight">Resumen General</h1>
               <p className="text-muted-foreground">Vista general de la cartera de clientes.</p>
             </div>
+            {isUserAdmin && (
+              <Button onClick={handleExportAllExcel}>
+                <Download /> Exportar Todo (Excel)
+              </Button>
+            )}
           </div>
 
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
