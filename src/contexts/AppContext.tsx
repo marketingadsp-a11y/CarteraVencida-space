@@ -235,11 +235,21 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   const updateClient = useCallback(async (id: string, clientData: Partial<Omit<Client, 'id'>>) => {
     if (!db) return;
     const clientRef = doc(db, 'clients', id);
-    const updatedData: Partial<Client> = { ...clientData };
-    if (clientData.adeudo !== undefined) {
-      updatedData.recuperado = clientData.adeudo <= 0;
+    const dataToUpdate = { ...clientData };
+    
+    // Always recalculate 'recuperado' status based on the final 'adeudo' value
+    if (dataToUpdate.adeudo !== undefined) {
+      dataToUpdate.recuperado = dataToUpdate.adeudo <= 0;
+    } else {
+      // If adeudo is not being updated, get current value to determine status
+      const clientSnap = await getDoc(clientRef);
+      if (clientSnap.exists()) {
+        const currentClient = clientSnap.data() as Client;
+        dataToUpdate.recuperado = currentClient.adeudo <= 0;
+      }
     }
-    await updateDoc(clientRef, updatedData);
+    
+    await updateDoc(clientRef, dataToUpdate);
   }, []);
 
   const addPayment = useCallback(async (clientId: string, monto: number) => {
