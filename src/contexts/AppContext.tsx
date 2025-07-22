@@ -32,6 +32,7 @@ interface AppContextType {
   setClients: (clients: Client[], plazaName: string, mode: 'add' | 'replace') => Promise<void>;
   addClient: (clientData: Omit<Client, 'id' | 'recuperado' | 'historialPagos'>) => Promise<void>;
   updateClient: (id: string, clientData: Partial<Omit<Client, 'id'>>) => Promise<void>;
+  deleteClient: (id: string) => Promise<void>;
   addPayment: (clientId: string, monto: number) => Promise<void>;
   deleteClientsByPlaza: (plazaName: string) => Promise<void>;
   plazas: string[];
@@ -62,6 +63,7 @@ export const AppContext = createContext<AppContextType>({
   setClients: async () => {},
   addClient: async () => {},
   updateClient: async () => {},
+  deleteClient: async () => {},
   addPayment: async () => {},
   deleteClientsByPlaza: async () => {},
   plazas: [],
@@ -244,6 +246,11 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     await updateDoc(clientRef, dataToUpdate);
   }, []);
 
+  const deleteClient = useCallback(async (id: string) => {
+    if (!db) return;
+    await deleteDoc(doc(db, 'clients', id));
+  }, []);
+
   const addPayment = useCallback(async (clientId: string, monto: number) => {
     if (!db) return;
     const clientRef = doc(db, 'clients', clientId);
@@ -400,6 +407,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     setClients,
     addClient,
     updateClient,
+    deleteClient,
     addPayment,
     deleteClientsByPlaza,
     plazas,

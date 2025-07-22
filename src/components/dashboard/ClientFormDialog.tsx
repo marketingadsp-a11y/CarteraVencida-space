@@ -10,8 +10,19 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, FileDown } from "lucide-react";
+import { Loader2, FileDown, Trash2 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import jsPDF from 'jspdf';
@@ -49,7 +60,7 @@ const defaultFormValues = {
 };
 
 export function ClientFormDialog({ isOpen, onOpenChange, plazaName, editingClient }: ClientFormDialogProps) {
-    const { addClient, updateClient, currentUser } = useContext(AppContext);
+    const { addClient, updateClient, deleteClient, currentUser } = useContext(AppContext);
     const { toast } = useToast();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const isEditMode = !!editingClient;
@@ -69,16 +80,31 @@ export function ClientFormDialog({ isOpen, onOpenChange, plazaName, editingClien
         }
     }, [isOpen, editingClient, isEditMode, form]);
     
+    const isUserAdmin = useMemo(() => {
+        if (!currentUser) return false;
+        return !('plazas' in currentUser);
+    }, [currentUser]);
+
     const canExportHistory = useMemo(() => {
         if (!currentUser) return false;
-        if (!('plazas' in currentUser)) return true; // Admin
+        if (isUserAdmin) return true; // Admin
 
         const user = currentUser as User;
         if (!user.plazas) return false;
         
         const plazaAccess = user.plazas.find(p => p.plazaName === plazaName);
         return plazaAccess?.permissions.canExportHistory ?? false;
-    }, [currentUser, plazaName]);
+    }, [currentUser, plazaName, isUserAdmin]);
+
+    const handleDelete = async () => {
+        if (!editingClient) return;
+        await deleteClient(editingClient.id);
+        toast({
+            title: "Cliente eliminado",
+            description: `El cliente "${editingClient.nombre}" ha sido eliminado.`,
+        });
+        onOpenChange(false);
+    };
 
     const handleExportPDF = () => {
         if (!editingClient) return;
@@ -135,8 +161,13 @@ export function ClientFormDialog({ isOpen, onOpenChange, plazaName, editingClien
     async function onSubmit(values: z.infer<typeof clientSchema>) {
         setIsSubmitting(true);
         try {
+            const dataToSubmit = {
+                ...values,
+                recuperado: values.adeudo <= 0,
+            };
+
             if (isEditMode) {
-                await updateClient(editingClient.id, values);
+                await updateClient(editingClient.id, dataToSubmit);
                 toast({
                     title: "Cliente Actualizado",
                     description: `Los datos de "${values.nombre}" han sido actualizados.`,
@@ -144,7 +175,7 @@ export function ClientFormDialog({ isOpen, onOpenChange, plazaName, editingClien
             } else {
                 const currentDate = new Date().toLocaleDateString('es-GB');
                 await addClient({
-                    ...values,
+                    ...dataToSubmit,
                     plaza: plazaName,
                     fecha: currentDate,
                 });
@@ -245,17 +276,44 @@ export function ClientFormDialog({ isOpen, onOpenChange, plazaName, editingClien
                                     </FormItem>
                                 )} />
                             </div>
-                            <DialogFooter className="pt-4 sticky bottom-0 bg-background py-4">
-                                {isEditMode && canExportHistory && (
-                                    <Button type="button" variant="secondary" onClick={handleExportPDF} className="mr-auto">
-                                        <FileDown className="mr-2 h-4 w-4" /> Exportar Historial
+                            <DialogFooter className="pt-4 sticky bottom-0 bg-background py-4 flex-wrap justify-between">
+                                <div className="flex gap-2 items-center">
+                                    {isEditMode && canExportHistory && (
+                                        <Button type="button" variant="secondary" onClick={handleExportPDF}>
+                                            <FileDown className="mr-2 h-4 w-4" /> Exportar Historial
+                                        </Button>
+                                    )}
+                                    {isEditMode && isUserAdmin && (
+                                        <AlertDialog>
+                                            <AlertDialogTrigger asChild>
+                                                <Button type="button" variant="destructive">
+                                                    <Trash2 className="mr-2 h-4 w-4" /> Eliminar Cliente
+                                                </Button>
+                                            </AlertDialogTrigger>
+                                            <AlertDialogContent>
+                                                <AlertDialogHeader>
+                                                    <AlertDialogTitle>¿Está seguro de eliminar este cliente?</AlertDialogTitle>
+                                                    <AlertDialogDescription>
+                                                        Esta acción es permanente y no se puede deshacer. Se eliminarán todos los datos del cliente "{editingClient?.nombre}".
+                                                    </AlertDialogDescription>
+                                                </AlertDialogHeader>
+                                                <AlertDialogFooter>
+                                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                                    <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">
+                                                        Sí, eliminar
+                                                    </AlertDialogAction>
+                                                </AlertDialogFooter>
+                                            </AlertDialogContent>
+                                        </AlertDialog>
+                                    )}
+                                </div>
+                                <div className="flex gap-2 items-center">
+                                    <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+                                    <Button type="submit" disabled={isSubmitting}>
+                                        {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                        {isSubmitting ? "Guardando..." : "Guardar Cambios"}
                                     </Button>
-                                )}
-                                <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-                                <Button type="submit" disabled={isSubmitting}>
-                                    {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                    {isSubmitting ? "Guardando..." : "Guardar Cambios"}
-                                </Button>
+                                </div>
                             </DialogFooter>
                         </form>
                     </Form>
