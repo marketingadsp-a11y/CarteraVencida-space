@@ -22,8 +22,9 @@ export default function Dashboard() {
   }, [currentUser]);
 
   const stats = useMemo(() => {
+    const pendingClients = clients.filter(client => !client.recuperado);
     const totalClients = clients.length;
-    const totalDebt = clients.reduce((acc, client) => acc + client.adeudo, 0);
+    const totalDebt = pendingClients.reduce((acc, client) => acc + client.adeudo, 0);
     const recoveredClients = clients.filter(c => c.recuperado).length;
     const recoveryRate = totalClients > 0 ? (recoveredClients / totalClients) * 100 : 0;
     
@@ -33,7 +34,7 @@ export default function Dashboard() {
   const plazaStats = useMemo(() => {
     return userPlazas.map((plaza, index) => {
       const plazaClients = clients.filter(c => c.plaza === plaza);
-      const pendingDebt = plazaClients.reduce((acc, client) => acc + client.adeudo, 0);
+      const pendingDebt = plazaClients.filter(c => !c.recuperado).reduce((acc, client) => acc + client.adeudo, 0);
       const totalClientsInPlaza = plazaClients.length;
       const recoveredInPlaza = plazaClients.filter(c => c.recuperado).length;
       const recoveryRate = totalClientsInPlaza > 0 ? (recoveredInPlaza / totalClientsInPlaza) * 100 : 0;

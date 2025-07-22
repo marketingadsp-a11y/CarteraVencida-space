@@ -90,7 +90,8 @@ export default function PlazaPage({ params }: { params: { plaza: string } }) {
 
   const stats = useMemo(() => {
     const totalClients = plazaClients.length;
-    const totalDebt = plazaClients.reduce((acc, client) => acc + client.adeudo, 0);
+    const pendingClients = plazaClients.filter(client => !client.recuperado);
+    const totalDebt = pendingClients.reduce((acc, client) => acc + client.adeudo, 0);
     const recoveredClients = plazaClients.filter(c => c.recuperado).length;
     
     return { totalClients, totalDebt, recoveredClients };
