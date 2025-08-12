@@ -357,7 +357,7 @@ export function ClientFormDialog({ isOpen, onOpenChange, plazaName, editingClien
                     <AlertDialogHeader>
                         <AlertDialogTitle>Confirmación de Eliminación</AlertDialogTitle>
                         <AlertDialogDescription>
-                            Esta acción es permanente y no se puede deshacer. Para confirmar, ingrese el código <strong className="font-bold text-destructive">0120</strong>.
+                            Esta acción es permanente y no se puede deshacer. Para confirmar, ingrese el código de seguridad.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <div className="py-2">
@@ -380,5 +380,3 @@ export function ClientFormDialog({ isOpen, onOpenChange, plazaName, editingClien
         </>
     );
 }
-
-    
