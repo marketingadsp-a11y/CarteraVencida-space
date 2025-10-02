@@ -359,8 +359,8 @@ export function ClientFormDialog({ isOpen, onOpenChange, plazaName, editingClien
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
-                                            {editingClient.historialPagos.slice().reverse().map((pago) => (
-                                                <TableRow key={pago.id}>
+                                            {editingClient.historialPagos.slice().reverse().map((pago, index) => (
+                                                <TableRow key={`${pago.id}-${index}`}>
                                                     <TableCell>{pago.fecha}</TableCell>
                                                     <TableCell className="text-right font-medium text-green-600">${pago.monto.toLocaleString('en-US', { minimumFractionDigits: 2 })}</TableCell>
                                                     <TableCell className="text-right">${pago.saldoAnterior.toLocaleString('en-US', { minimumFractionDigits: 2 })}</TableCell>
@@ -434,3 +434,5 @@ export function ClientFormDialog({ isOpen, onOpenChange, plazaName, editingClien
         </>
     );
 }
+
+    
