@@ -282,19 +282,20 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const clientSnap = await getDoc(clientRef);
 
     if (clientSnap.exists()) {
-      const client = clientSnap.data() as Client;
-      const paymentToDelete = client.historialPagos?.find(p => p.id === paymentId);
-      
-      if (paymentToDelete) {
-        const newAdeudo = client.adeudo + paymentToDelete.monto;
-        const newHistorial = client.historialPagos?.filter(p => p.id !== paymentId);
+        const client = clientSnap.data() as Client;
+        const historial = client.historialPagos || [];
+        const paymentToDelete = historial.find(p => p.id === paymentId);
 
-        await updateDoc(clientRef, {
-          adeudo: newAdeudo,
-          recuperado: newAdeudo <= 0,
-          historialPagos: newHistorial,
-        });
-      }
+        if (paymentToDelete) {
+            const newAdeudo = client.adeudo + paymentToDelete.monto;
+            const newHistorial = historial.filter(p => p.id !== paymentId);
+
+            await updateDoc(clientRef, {
+                adeudo: newAdeudo,
+                recuperado: newAdeudo <= 0,
+                historialPagos: newHistorial,
+            });
+        }
     }
   }, []);
 
