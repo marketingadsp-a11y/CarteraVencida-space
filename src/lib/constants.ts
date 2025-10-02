@@ -1,4 +1,5 @@
 export type Payment = {
+  id: string; // Added for unique identification
   fecha: string;
   monto: number;
   saldoAnterior: number;

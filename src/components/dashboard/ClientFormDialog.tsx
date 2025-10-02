@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import React, { useContext, useState, useEffect, useMemo } from "react";
 import { AppContext } from "@/contexts/AppContext";
-import { Client, User } from "@/lib/constants";
+import { Client, User, Payment } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -61,10 +61,12 @@ const defaultFormValues = {
 };
 
 export function ClientFormDialog({ isOpen, onOpenChange, plazaName, editingClient }: ClientFormDialogProps) {
-    const { addClient, updateClient, deleteClient, currentUser } = useContext(AppContext);
+    const { addClient, updateClient, deleteClient, deletePayment, currentUser } = useContext(AppContext);
     const { toast } = useToast();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+    const [isDeletePaymentDialogOpen, setIsDeletePaymentDialogOpen] = useState(false);
+    const [paymentToDelete, setPaymentToDelete] = useState<Payment | null>(null);
     const [confirmationCode, setConfirmationCode] = useState("");
     const isEditMode = !!editingClient;
 
@@ -88,6 +90,12 @@ export function ClientFormDialog({ isOpen, onOpenChange, plazaName, editingClien
             setConfirmationCode("");
         }
     }, [isDeleteDialogOpen]);
+
+    useEffect(() => {
+        if (!isDeletePaymentDialogOpen) {
+            setPaymentToDelete(null);
+        }
+    }, [isDeletePaymentDialogOpen]);
     
     const isUserAdmin = useMemo(() => {
         if (!currentUser) return false;
@@ -124,6 +132,16 @@ export function ClientFormDialog({ isOpen, onOpenChange, plazaName, editingClien
         });
         setIsDeleteDialogOpen(false);
         onOpenChange(false);
+    };
+    
+    const handleDeletePayment = async () => {
+        if (!editingClient || !paymentToDelete) return;
+        await deletePayment(editingClient.id, paymentToDelete.id);
+        toast({
+            title: "Pago eliminado",
+            description: `El abono de $${paymentToDelete.monto.toLocaleString()} ha sido eliminado y la deuda ha sido actualizada.`,
+        });
+        setIsDeletePaymentDialogOpen(false);
     };
 
     const handleExportPDF = () => {
@@ -187,7 +205,12 @@ export function ClientFormDialog({ isOpen, onOpenChange, plazaName, editingClien
             };
 
             if (isEditMode) {
-                await updateClient(editingClient.id, dataToSubmit);
+                const clientDataToUpdate: Partial<Client> = { ...dataToSubmit };
+                // Ensure historialPagos is not unintentionally erased if it exists
+                if (!clientDataToUpdate.historialPagos) {
+                   delete clientDataToUpdate.historialPagos;
+                }
+                await updateClient(editingClient.id, clientDataToUpdate);
                 toast({
                     title: "Cliente Actualizado",
                     description: `Los datos de "${values.nombre}" han sido actualizados.`,
@@ -332,15 +355,29 @@ export function ClientFormDialog({ isOpen, onOpenChange, plazaName, editingClien
                                                 <TableHead className="text-right">Monto</TableHead>
                                                 <TableHead className="text-right">Saldo Anterior</TableHead>
                                                 <TableHead className="text-right">Saldo Nuevo</TableHead>
+                                                {isUserAdmin && <TableHead className="text-right">Acción</TableHead>}
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
-                                            {editingClient.historialPagos.slice().reverse().map((pago, index) => (
-                                                <TableRow key={index}>
+                                            {editingClient.historialPagos.slice().reverse().map((pago) => (
+                                                <TableRow key={pago.id}>
                                                     <TableCell>{pago.fecha}</TableCell>
                                                     <TableCell className="text-right font-medium text-green-600">${pago.monto.toLocaleString('en-US', { minimumFractionDigits: 2 })}</TableCell>
                                                     <TableCell className="text-right">${pago.saldoAnterior.toLocaleString('en-US', { minimumFractionDigits: 2 })}</TableCell>
                                                     <TableCell className="text-right">${pago.saldoNuevo.toLocaleString('en-US', { minimumFractionDigits: 2 })}</TableCell>
+                                                    {isUserAdmin && (
+                                                        <TableCell className="text-right">
+                                                            <Button 
+                                                                variant="ghost" 
+                                                                size="icon" 
+                                                                onClick={() => {
+                                                                    setPaymentToDelete(pago);
+                                                                    setIsDeletePaymentDialogOpen(true);
+                                                                }}>
+                                                                <Trash2 className="h-4 w-4 text-destructive" />
+                                                            </Button>
+                                                        </TableCell>
+                                                    )}
                                                 </TableRow>
                                             ))}
                                         </TableBody>
@@ -364,7 +401,7 @@ export function ClientFormDialog({ isOpen, onOpenChange, plazaName, editingClien
                         <Input 
                             value={confirmationCode}
                             onChange={(e) => setConfirmationCode(e.target.value)}
-                            placeholder="Ingrese el código de 4 dígitos"
+                            placeholder="Ingrese el código de seguridad"
                             maxLength={4}
                             autoFocus
                         />
@@ -373,6 +410,23 @@ export function ClientFormDialog({ isOpen, onOpenChange, plazaName, editingClien
                         <AlertDialogCancel>Cancelar</AlertDialogCancel>
                         <AlertDialogAction onClick={handleDelete} disabled={confirmationCode !== '0120'} className="bg-destructive hover:bg-destructive/90">
                             Sí, eliminar cliente
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            <AlertDialog open={isDeletePaymentDialogOpen} onOpenChange={setIsDeletePaymentDialogOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>¿Eliminar este abono?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Esta acción no se puede deshacer. El monto de <strong>${paymentToDelete?.monto.toLocaleString('en-US', { minimumFractionDigits: 2 })}</strong> se sumará de nuevo a la deuda del cliente.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleDeletePayment} className="bg-destructive hover:bg-destructive/90">
+                            Sí, eliminar abono
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>

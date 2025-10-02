@@ -34,6 +34,7 @@ interface AppContextType {
   updateClient: (id: string, clientData: Partial<Omit<Client, 'id'>>) => Promise<void>;
   deleteClient: (id: string) => Promise<void>;
   addPayment: (clientId: string, monto: number) => Promise<void>;
+  deletePayment: (clientId: string, paymentId: string) => Promise<void>;
   deleteClientsByPlaza: (plazaName: string) => Promise<void>;
   plazas: string[];
   userPlazas: string[];
@@ -65,6 +66,7 @@ export const AppContext = createContext<AppContextType>({
   updateClient: async () => {},
   deleteClient: async () => {},
   addPayment: async () => {},
+  deletePayment: async () => {},
   deleteClientsByPlaza: async () => {},
   plazas: [],
   userPlazas: [],
@@ -213,7 +215,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     });
   }, []);
 
-  const setClients = useCallback(async (importedClients: Client[], plazaName: string, mode: 'add' | 'replace') => {
+  const setClients = useCallback(async (importedClients: Omit<Client, 'id'>[], plazaName: string, mode: 'add' | 'replace') => {
     if (!db) return;
     const batch = writeBatch(db);
     
@@ -226,7 +228,9 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     importedClients.forEach(client => {
       const clientRef = doc(collection(db, 'clients'));
       const newClientData = { ...client };
-      delete (newClientData as any).id;
+      if (!newClientData.historialPagos) {
+          newClientData.historialPagos = [];
+      }
       batch.set(clientRef, newClientData);
     });
 
@@ -237,9 +241,9 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   const updateClient = useCallback(async (id: string, clientData: Partial<Omit<Client, 'id'>>) => {
     if (!db) return;
     const clientRef = doc(db, 'clients', id);
-    const dataToUpdate: Partial<Client> = { ...clientData };
+    const dataToUpdate: Partial<Omit<Client, 'id'>> = { ...clientData };
 
-    if (dataToUpdate.adeudo !== undefined) {
+    if (typeof dataToUpdate.adeudo === 'number') {
       dataToUpdate.recuperado = dataToUpdate.adeudo <= 0;
     }
     
@@ -258,6 +262,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     if (clientSnap.exists()) {
       const client = clientSnap.data() as Client;
       const newPayment: Payment = {
+        id: new Date().toISOString() + Math.random().toString(36).substr(2, 9), // Unique ID
         fecha: new Date().toLocaleDateString('es-GB'),
         monto,
         saldoAnterior: client.adeudo,
@@ -268,6 +273,28 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         recuperado: newPayment.saldoNuevo <= 0,
         historialPagos: [...(client.historialPagos || []), newPayment],
       });
+    }
+  }, []);
+
+  const deletePayment = useCallback(async (clientId: string, paymentId: string) => {
+    if (!db) return;
+    const clientRef = doc(db, 'clients', clientId);
+    const clientSnap = await getDoc(clientRef);
+
+    if (clientSnap.exists()) {
+      const client = clientSnap.data() as Client;
+      const paymentToDelete = client.historialPagos?.find(p => p.id === paymentId);
+      
+      if (paymentToDelete) {
+        const newAdeudo = client.adeudo + paymentToDelete.monto;
+        const newHistorial = client.historialPagos?.filter(p => p.id !== paymentId);
+
+        await updateDoc(clientRef, {
+          adeudo: newAdeudo,
+          recuperado: newAdeudo <= 0,
+          historialPagos: newHistorial,
+        });
+      }
     }
   }, []);
 
@@ -409,6 +436,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     updateClient,
     deleteClient,
     addPayment,
+    deletePayment,
     deleteClientsByPlaza,
     plazas,
     userPlazas,
