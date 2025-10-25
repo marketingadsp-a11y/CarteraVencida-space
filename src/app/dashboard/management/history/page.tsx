@@ -18,6 +18,7 @@ import { PiggyBank, History as HistoryIcon, User, Building, Trash2, Edit, FileUp
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { DateRange } from 'react-day-picker';
+import { Label } from '@/components/ui/label';
 
 const getActionIcon = (type: ActionLog['type']) => {
   switch (type) {
