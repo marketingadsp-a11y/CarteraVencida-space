@@ -147,9 +147,6 @@ export default function HistoryPage() {
 
   return (
     <div className="flex flex-col gap-6">
-       <div className="flex items-center justify-between">
-            <h1 className="text-3xl font-bold font-headline tracking-tight">Historial del Sistema</h1>
-        </div>
       <Tabs defaultValue="payments" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="payments">
@@ -255,8 +252,8 @@ export default function HistoryPage() {
                     </TableHeader>
                     <TableBody>
                       {filteredPayments.length > 0 ? (
-                        filteredPayments.map((payment) => (
-                          <TableRow key={`${payment.id}-${payment.clienteId}`}>
+                        filteredPayments.map((payment, index) => (
+                          <TableRow key={`${payment.id}-${payment.clienteId}-${index}`}>
                             <TableCell>{payment.fecha ? format(parsePaymentDate(payment.fecha), "dd/MM/yyyy", { locale: es }) : 'N/A'}</TableCell>
                             <TableCell className="font-medium">{payment.clienteNombre}</TableCell>
                             <TableCell>
@@ -404,6 +401,3 @@ export default function HistoryPage() {
     </div>
   );
 }
-
-
-    
