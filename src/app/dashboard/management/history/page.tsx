@@ -107,7 +107,7 @@ export default function HistoryPage() {
                       {filteredPayments.length > 0 ? (
                         filteredPayments.map((payment) => (
                           <TableRow key={payment.id}>
-                            <TableCell>{format(parsePaymentDate(payment.fecha), "dd/MM/yyyy")}</TableCell>
+                            <TableCell>{payment.fecha ? format(parsePaymentDate(payment.fecha), "dd/MM/yyyy") : 'N/A'}</TableCell>
                             <TableCell className="font-medium">{payment.clienteNombre}</TableCell>
                             <TableCell>
                               <Badge variant="outline">{payment.plaza}</Badge>
@@ -178,13 +178,13 @@ export default function HistoryPage() {
                                     {log.user}
                                 </Badge>
                             </TableCell>
-                            <TableCell className="flex items-center gap-2">
+                            <TableCell className="flex items-start gap-2">
                                 <span className={cn(
-                                    "flex h-8 w-8 items-center justify-center rounded-full bg-muted",
+                                    "flex h-8 w-8 items-center justify-center rounded-full bg-muted flex-shrink-0 mt-1",
                                 )}>
                                     {getActionIcon(log.type)}
                                 </span>
-                                <span>{log.action}</span>
+                                <span className="flex-grow">{log.action}</span>
                             </TableCell>
                           </TableRow>
                         ))

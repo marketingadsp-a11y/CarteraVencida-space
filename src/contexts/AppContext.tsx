@@ -292,14 +292,38 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const originalClient = clientSnap.data() as Client;
 
     const dataToUpdate: Partial<Omit<Client, 'id'>> = { ...clientData };
-
-    if (typeof dataToUpdate.adeudo === 'number') {
-      dataToUpdate.recuperado = dataToUpdate.adeudo <= 0;
-    }
     
+    // Always recalculate 'recuperado' status
+    const newAdeudo = typeof dataToUpdate.adeudo === 'number' ? dataToUpdate.adeudo : originalClient.adeudo;
+    dataToUpdate.recuperado = newAdeudo <= 0;
+
+    const fieldLabels: { [key in keyof Client]?: string } = {
+        nombre: 'Nombre',
+        direccion: 'Dirección',
+        telefono: 'Teléfono',
+        aval: 'Aval',
+        telefonoAval: 'Tel. Aval',
+        prestamo: 'Préstamo ($)',
+        pago: 'Pago ($)',
+        vencidos: 'No. Vencidos',
+        adeudo: 'Adeudo ($)',
+    };
+
+    const changes = Object.keys(dataToUpdate)
+      .filter(key => key in fieldLabels && dataToUpdate[key as keyof typeof dataToUpdate] !== originalClient[key as keyof Client])
+      .map(key => {
+        const fieldName = fieldLabels[key as keyof Client]!;
+        const oldValue = originalClient[key as keyof Client];
+        const newValue = dataToUpdate[key as keyof typeof dataToUpdate];
+        return `${fieldName}: '${oldValue}' -> '${newValue}'`;
+      }).join('; ');
+
     await updateDoc(clientRef, dataToUpdate);
-    logAction('UPDATE', `Actualizó al cliente "${originalClient.nombre}" (ID: ${id})`);
+
+    const logMessage = `Actualizó al cliente "${originalClient.nombre}"${changes ? `. Cambios: ${changes}` : ''}`;
+    logAction('UPDATE', logMessage);
   }, [logAction]);
+
 
   const deleteClient = useCallback(async (id: string) => {
     if (!db) return;
