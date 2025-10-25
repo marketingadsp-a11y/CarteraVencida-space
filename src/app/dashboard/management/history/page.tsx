@@ -1,7 +1,7 @@
 "use client";
 
 import { useContext, useMemo, useState } from 'react';
-import { format } from 'date-fns';
+import { format, parse } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { AppContext } from '@/contexts/AppContext';
 import { ActionLog, Payment } from '@/lib/constants';
@@ -47,6 +47,15 @@ export default function HistoryPage() {
     );
   }, [allPayments, paymentSearch]);
 
+  const parsePaymentDate = (dateString: string) => {
+    // Try parsing YYYY-MM-DD first
+    let date = parse(dateString, 'yyyy-MM-dd', new Date());
+    // If invalid, try parsing DD/MM/YYYY
+    if (isNaN(date.getTime())) {
+      date = parse(dateString, 'dd/MM/yyyy', new Date());
+    }
+    return date;
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -96,7 +105,7 @@ export default function HistoryPage() {
                       {filteredPayments.length > 0 ? (
                         filteredPayments.map((payment) => (
                           <TableRow key={payment.id}>
-                            <TableCell>{format(new Date(payment.fecha), "dd/MM/yyyy")}</TableCell>
+                            <TableCell>{format(parsePaymentDate(payment.fecha), "dd/MM/yyyy")}</TableCell>
                             <TableCell className="font-medium">{payment.clienteNombre}</TableCell>
                             <TableCell>
                               <Badge variant="outline">{payment.plaza}</Badge>
@@ -189,3 +198,5 @@ export default function HistoryPage() {
     </div>
   );
 }
+
+    

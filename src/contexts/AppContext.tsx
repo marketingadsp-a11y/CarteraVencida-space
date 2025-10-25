@@ -318,9 +318,11 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const clientSnap = await getDoc(clientRef);
     if (clientSnap.exists()) {
       const client = clientSnap.data() as Client;
+      const paymentDate = new Date();
+      
       const newPayment: Payment = {
-        id: new Date().toISOString() + Math.random().toString(36).substr(2, 9), // Unique ID
-        fecha: new Date().toLocaleDateString('es-GB'),
+        id: paymentDate.toISOString() + Math.random().toString(36).substr(2, 9), // Unique ID
+        fecha: paymentDate.toISOString().split('T')[0], // YYYY-MM-DD
         monto,
         saldoAnterior: client.adeudo,
         saldoNuevo: Math.max(0, client.adeudo - monto),
@@ -511,7 +513,12 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         clienteNombre: client.nombre,
         plaza: client.plaza,
       }))
-    ).sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
+    ).sort((a, b) => {
+        // Handle both 'YYYY-MM-DD' and 'DD/MM/YYYY' formats
+        const dateA = a.fecha.includes('/') ? new Date(a.fecha.split('/').reverse().join('-')) : new Date(a.fecha);
+        const dateB = b.fecha.includes('/') ? new Date(b.fecha.split('/').reverse().join('-')) : new Date(b.fecha);
+        return dateB.getTime() - dateA.getTime();
+    });
   }, [clients]);
 
   const value = {
@@ -550,3 +557,5 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };
+
+    
