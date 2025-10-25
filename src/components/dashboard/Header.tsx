@@ -17,7 +17,7 @@ import {
   SheetContent,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { Menu, CircleUser, Rocket, Home, Building, LogOut, Settings, ShieldCheck, UsersRound, Store, Landmark, Warehouse, School, Factory, Castle, ArrowLeft } from "lucide-react";
+import { Menu, CircleUser, Rocket, Home, Building, LogOut, Settings, ShieldCheck, UsersRound, Store, Landmark, Warehouse, School, Factory, Castle, ArrowLeft, History } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 
@@ -44,6 +44,7 @@ export default function Header() {
     { href: "/dashboard/management/plazas", label: "Gestionar Plazas", icon: Building },
     { href: "/dashboard/management/admins", label: "Gestionar Admins", icon: ShieldCheck },
     { href: "/dashboard/management/users", label: "Gestionar Usuarios", icon: UsersRound },
+    { href: "/dashboard/management/history", label: "Historial", icon: History },
     { href: "/dashboard/management/settings", label: "Ajustes", icon: Settings },
   ];
 

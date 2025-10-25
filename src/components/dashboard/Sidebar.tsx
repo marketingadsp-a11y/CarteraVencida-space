@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Rocket, Home, Building, Store, Landmark, Warehouse, School, Factory, Castle, Settings, ShieldCheck, UsersRound } from "lucide-react";
+import { Rocket, Home, Building, Store, Landmark, Warehouse, School, Factory, Castle, Settings, ShieldCheck, UsersRound, History } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useContext } from "react";
@@ -29,6 +29,7 @@ export default function Sidebar() {
     { href: "/dashboard/management/plazas", label: "Gestionar Plazas", icon: Building },
     { href: "/dashboard/management/admins", label: "Gestionar Admins", icon: ShieldCheck },
     { href: "/dashboard/management/users", label: "Gestionar Usuarios", icon: UsersRound },
+    { href: "/dashboard/management/history", label: "Historial", icon: History },
     { href: "/dashboard/management/settings", label: "Ajustes", icon: Settings },
   ];
 

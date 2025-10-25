@@ -4,6 +4,9 @@ export type Payment = {
   monto: number;
   saldoAnterior: number;
   saldoNuevo: number;
+  clienteId?: string; // For global history
+  clienteNombre?: string; // For global history
+  plaza?: string; // For global history
 };
 
 export type Client = {
@@ -46,4 +49,13 @@ export type User = {
   username: string;
   password?: string;
   plazas: UserPlazaAccess[];
+};
+
+export type ActionLog = {
+  id: string;
+  timestamp: string;
+  user: string;
+  action: string;
+  type: 'CREATE' | 'UPDATE' | 'DELETE' | 'PAYMENT' | 'IMPORT' | 'LOGIN';
+  details?: Record<string, any>;
 };

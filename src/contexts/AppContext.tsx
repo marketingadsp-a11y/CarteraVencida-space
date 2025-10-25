@@ -2,7 +2,7 @@
 
 import React, { createContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { Client, Admin, User, Payment } from '@/lib/constants';
+import { Client, Admin, User, Payment, ActionLog } from '@/lib/constants';
 import { db, isFirebaseConfigured } from '@/lib/firebase';
 import {
   collection,
@@ -17,6 +17,8 @@ import {
   writeBatch,
   getDoc,
   setDoc,
+  Timestamp,
+  orderBy,
 } from 'firebase/firestore';
 
 
@@ -49,6 +51,8 @@ interface AppContextType {
   addUser: (userData: Omit<User, 'id'>) => Promise<boolean>;
   updateUser: (id: string, userData: Omit<User, 'id' | 'password'> & { password?: string }) => Promise<boolean>;
   deleteUser: (id: string) => Promise<void>;
+  actionLogs: ActionLog[];
+  allPayments: Payment[];
   isFirebaseConfigured: boolean;
 }
 
@@ -81,6 +85,8 @@ export const AppContext = createContext<AppContextType>({
   addUser: async () => false,
   updateUser: async () => false,
   deleteUser: async () => {},
+  actionLogs: [],
+  allPayments: [],
   isFirebaseConfigured: false,
 });
 
@@ -92,7 +98,27 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   const [plazas, setPlazas] = useState<string[]>([]);
   const [admins, setAdmins] = useState<Admin[]>([]);
   const [users, setUsers] = useState<User[]>([]);
+  const [actionLogs, setActionLogs] = useState<ActionLog[]>([]);
   const router = useRouter();
+
+  const logAction = useCallback(async (
+    type: ActionLog['type'], 
+    action: string, 
+    details: Record<string, any> = {}
+  ) => {
+    if (!db || !currentUser) return;
+    try {
+      await addDoc(collection(db, 'action_logs'), {
+        type,
+        action,
+        user: currentUser.username,
+        timestamp: Timestamp.now(),
+        details,
+      });
+    } catch (error) {
+      console.error("Error logging action:", error);
+    }
+  }, [currentUser]);
 
   useEffect(() => {
     if (!isFirebaseConfigured || !db) {
@@ -108,6 +134,19 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     } catch (error) {
       console.error("Could not access localStorage", error);
     }
+
+    const q = query(collection(db, 'action_logs'), orderBy('timestamp', 'desc'));
+    const logUnsubscribe = onSnapshot(q, (snapshot) => {
+        const logs = snapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+                ...data,
+                id: doc.id,
+                timestamp: (data.timestamp as Timestamp).toDate().toISOString(),
+            } as ActionLog;
+        });
+        setActionLogs(logs);
+    });
 
     const unsubscribes = [
       onSnapshot(doc(db, 'settings', 'appName'), (doc) => {
@@ -131,6 +170,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Client));
         setClientsState(data.sort((a, b) => a.nombre.localeCompare(b.nombre)));
       }),
+      logUnsubscribe,
     ];
 
     const checkAndSeedData = async () => {
@@ -170,7 +210,8 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   const setAppName = useCallback(async (name: string) => {
     if (!db) return;
     await setDoc(doc(db, 'settings', 'appName'), { name });
-  }, []);
+    logAction('UPDATE', `Cambió el nombre de la aplicación a "${name}"`);
+  }, [logAction]);
 
   const login = useCallback(async (user: string, pass: string): Promise<boolean> => {
     if (!db) return false;
@@ -182,6 +223,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       delete adminData.password;
       setCurrentUser(adminData);
       localStorage.setItem('currentUser', JSON.stringify(adminData));
+      logAction('LOGIN', `El administrador "${user}" inició sesión.`);
       router.push('/dashboard');
       return true;
     }
@@ -194,17 +236,19 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       delete userData.password;
       setCurrentUser(userData);
       localStorage.setItem('currentUser', JSON.stringify(userData));
+      logAction('LOGIN', `El usuario "${user}" inició sesión.`);
       router.push('/dashboard');
       return true;
     }
     return false;
-  }, [router]);
+  }, [router, logAction]);
 
   const logout = useCallback(() => {
+    logAction('LOGIN', `El usuario "${currentUser?.username}" cerró sesión.`);
     setCurrentUser(null);
     localStorage.removeItem('currentUser');
     router.push('/');
-  }, [router]);
+  }, [router, logAction, currentUser]);
 
   const addClient = useCallback(async (clientData: Omit<Client, 'id' | 'recuperado' | 'historialPagos'>) => {
     if (!db) return;
@@ -213,7 +257,8 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       recuperado: clientData.adeudo <= 0,
       historialPagos: [],
     });
-  }, []);
+    logAction('CREATE', `Registró al cliente "${clientData.nombre}" en la plaza ${clientData.plaza}`);
+  }, [logAction]);
 
   const setClients = useCallback(async (importedClients: Omit<Client, 'id'>[], plazaName: string, mode: 'add' | 'replace') => {
     if (!db) return;
@@ -235,12 +280,17 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     });
 
     await batch.commit();
-  }, []);
+    logAction('IMPORT', `Importó ${importedClients.length} clientes a la plaza "${plazaName}" (modo: ${mode}).`);
+  }, [logAction]);
 
 
   const updateClient = useCallback(async (id: string, clientData: Partial<Omit<Client, 'id'>>) => {
     if (!db) return;
     const clientRef = doc(db, 'clients', id);
+    const clientSnap = await getDoc(clientRef);
+    if (!clientSnap.exists()) return;
+    const originalClient = clientSnap.data() as Client;
+
     const dataToUpdate: Partial<Omit<Client, 'id'>> = { ...clientData };
 
     if (typeof dataToUpdate.adeudo === 'number') {
@@ -248,12 +298,19 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     }
     
     await updateDoc(clientRef, dataToUpdate);
-  }, []);
+    logAction('UPDATE', `Actualizó al cliente "${originalClient.nombre}" (ID: ${id})`);
+  }, [logAction]);
 
   const deleteClient = useCallback(async (id: string) => {
     if (!db) return;
-    await deleteDoc(doc(db, 'clients', id));
-  }, []);
+    const clientRef = doc(db, 'clients', id);
+    const clientSnap = await getDoc(clientRef);
+    if (!clientSnap.exists()) return;
+    const clientData = clientSnap.data() as Client;
+
+    await deleteDoc(clientRef);
+    logAction('DELETE', `Eliminó al cliente "${clientData.nombre}" de la plaza ${clientData.plaza}.`);
+  }, [logAction]);
 
   const addPayment = useCallback(async (clientId: string, monto: number) => {
     if (!db) return;
@@ -273,8 +330,9 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         recuperado: newPayment.saldoNuevo <= 0,
         historialPagos: [...(client.historialPagos || []), newPayment],
       });
+      logAction('PAYMENT', `Registró un abono de $${monto} para el cliente "${client.nombre}".`);
     }
-  }, []);
+  }, [logAction]);
 
   const deletePayment = useCallback(async (clientId: string, paymentId: string) => {
     if (!db) return;
@@ -295,9 +353,10 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                 recuperado: newAdeudo <= 0,
                 historialPagos: newHistorial,
             });
+            logAction('DELETE', `Eliminó un abono de $${paymentToDelete.monto} del cliente "${client.nombre}".`);
         }
     }
-  }, []);
+  }, [logAction]);
 
   const deleteClientsByPlaza = useCallback(async (plazaName: string) => {
     if (!db) return;
@@ -310,15 +369,17 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       batch.delete(doc.ref);
     });
     await batch.commit();
-  }, []);
+    logAction('DELETE', `Eliminó todos los clientes de la plaza "${plazaName}".`);
+  }, [logAction]);
 
   const addPlaza = useCallback(async (plazaName: string) => {
     if (!db) return false;
     const q = query(collection(db, 'plazas'), where('name', '==', plazaName));
     if (!(await getDocs(q)).empty) return false;
     await addDoc(collection(db, 'plazas'), { name: plazaName });
+    logAction('CREATE', `Creó la plaza "${plazaName}".`);
     return true;
-  }, []);
+  }, [logAction]);
 
   const updatePlaza = useCallback(async (oldName: string, newName: string) => {
     if (!db) return false;
@@ -345,8 +406,9 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     });
     
     await batch.commit();
+    logAction('UPDATE', `Actualizó la plaza "${oldName}" a "${newName}".`);
     return true;
-  }, [users]);
+  }, [users, logAction]);
 
   const deletePlaza = useCallback(async (plazaName: string) => {
     if (!db) return false;
@@ -357,17 +419,19 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const plazaSnap = await getDocs(q);
     if (!plazaSnap.empty) {
       await deleteDoc(plazaSnap.docs[0].ref);
+      logAction('DELETE', `Eliminó la plaza "${plazaName}".`);
     }
     return true;
-  }, []);
+  }, [logAction]);
 
   const addAdmin = useCallback(async (adminData: Omit<Admin, 'id' | 'password'> & { password?: string }) => {
     if (!db) return false;
     const q = query(collection(db, 'admins'), where('username', '==', adminData.username));
     if (!(await getDocs(q)).empty) return false;
     await addDoc(collection(db, 'admins'), adminData);
+    logAction('CREATE', `Creó el administrador "${adminData.username}".`);
     return true;
-  }, []);
+  }, [logAction]);
 
   const updateAdmin = useCallback(async (id: string, adminData: Omit<Admin, 'id' | 'password'> & { password?: string }) => {
     if (!db) return false;
@@ -379,23 +443,32 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const dataToUpdate: any = { username: adminData.username };
     if (adminData.password) dataToUpdate.password = adminData.password;
     await updateDoc(adminRef, dataToUpdate);
+    logAction('UPDATE', `Actualizó al administrador "${adminData.username}".`);
     return true;
-  }, []);
+  }, [logAction]);
 
   const deleteAdmin = useCallback(async (id: string) => {
     if (!db) return false;
     if (admins.length <= 1) return false;
-    await deleteDoc(doc(db, 'admins', id));
+
+    const adminRef = doc(db, 'admins', id);
+    const adminSnap = await getDoc(adminRef);
+    if (!adminSnap.exists()) return false;
+    const adminData = adminSnap.data() as Admin;
+
+    await deleteDoc(adminRef);
+    logAction('DELETE', `Eliminó al administrador "${adminData.username}".`);
     return true;
-  }, [admins.length]);
+  }, [admins.length, logAction]);
 
   const addUser = useCallback(async (userData: Omit<User, 'id'>) => {
     if (!db) return false;
     const q = query(collection(db, 'users'), where('username', '==', userData.username));
     if (!(await getDocs(q)).empty) return false;
     await addDoc(collection(db, 'users'), userData);
+    logAction('CREATE', `Creó al usuario "${userData.username}".`);
     return true;
-  }, []);
+  }, [logAction]);
 
   const updateUser = useCallback(async (id: string, userData: Omit<User, 'id' | 'password'> & { password?: string }) => {
     if (!db) return false;
@@ -407,13 +480,20 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const dataToUpdate: any = { username: userData.username, plazas: userData.plazas };
     if (userData.password) dataToUpdate.password = userData.password;
     await updateDoc(userRef, dataToUpdate);
+    logAction('UPDATE', `Actualizó al usuario "${userData.username}".`);
     return true;
-  }, []);
+  }, [logAction]);
 
   const deleteUser = useCallback(async (id: string) => {
     if (!db) return;
+    const userRef = doc(db, 'users', id);
+    const userSnap = await getDoc(userRef);
+    if (!userSnap.exists()) return;
+    const userData = userSnap.data() as User;
+
     await deleteDoc(doc(db, 'users', id));
-  }, []);
+    logAction('DELETE', `Eliminó al usuario "${userData.username}".`);
+  }, [logAction]);
 
   const userPlazas = useMemo(() => {
     if (!currentUser) return [];
@@ -422,6 +502,17 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const user = currentUser as User;
     return user.plazas.map(p => p.plazaName).sort();
   }, [currentUser, plazas]);
+
+  const allPayments = useMemo(() => {
+    return clients.flatMap(client => 
+      (client.historialPagos || []).map(p => ({
+        ...p,
+        clienteId: client.id,
+        clienteNombre: client.nombre,
+        plaza: client.plaza,
+      }))
+    ).sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
+  }, [clients]);
 
   const value = {
     isAuthenticated: !!currentUser,
@@ -452,6 +543,8 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     addUser,
     updateUser,
     deleteUser,
+    actionLogs,
+    allPayments,
     isFirebaseConfigured,
   };
 
