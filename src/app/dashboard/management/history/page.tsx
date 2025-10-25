@@ -60,11 +60,7 @@ export default function HistoryPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold font-headline tracking-tight">Historial del Sistema</h1>
-      </div>
-
-      <Tabs defaultValue="payments">
+      <Tabs defaultValue="payments" className="pt-2">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="payments">
             <PiggyBank className="mr-2" /> Historial de Abonos
