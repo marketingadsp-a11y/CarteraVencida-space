@@ -313,7 +313,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   }, [logAction]);
 
   const addPayment = useCallback(async (clientId: string, monto: number) => {
-    if (!db) return;
+    if (!db || !currentUser) return;
     const clientRef = doc(db, 'clients', clientId);
     const clientSnap = await getDoc(clientRef);
     if (clientSnap.exists()) {
@@ -321,11 +321,12 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       const paymentDate = new Date();
       
       const newPayment: Payment = {
-        id: paymentDate.toISOString() + Math.random().toString(36).substr(2, 9), // Unique ID
-        fecha: paymentDate.toISOString().split('T')[0], // YYYY-MM-DD
+        id: paymentDate.toISOString() + Math.random().toString(36).substr(2, 9),
+        fecha: paymentDate.toISOString().split('T')[0],
         monto,
         saldoAnterior: client.adeudo,
         saldoNuevo: Math.max(0, client.adeudo - monto),
+        user: currentUser.username,
       };
       await updateDoc(clientRef, {
         adeudo: newPayment.saldoNuevo,
@@ -334,7 +335,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       });
       logAction('PAYMENT', `Registró un abono de $${monto} para el cliente "${client.nombre}".`);
     }
-  }, [logAction]);
+  }, [logAction, currentUser]);
 
   const deletePayment = useCallback(async (clientId: string, paymentId: string) => {
     if (!db) return;
@@ -557,5 +558,3 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };
-
-    

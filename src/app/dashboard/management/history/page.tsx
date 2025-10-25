@@ -43,7 +43,8 @@ export default function HistoryPage() {
     if (!paymentSearch) return allPayments;
     return allPayments.filter(payment =>
       payment.clienteNombre?.toLowerCase().includes(paymentSearch.toLowerCase()) ||
-      payment.plaza?.toLowerCase().includes(paymentSearch.toLowerCase())
+      payment.plaza?.toLowerCase().includes(paymentSearch.toLowerCase()) ||
+      payment.user?.toLowerCase().includes(paymentSearch.toLowerCase())
     );
   }, [allPayments, paymentSearch]);
 
@@ -98,6 +99,7 @@ export default function HistoryPage() {
                         <TableHead>Fecha</TableHead>
                         <TableHead>Cliente</TableHead>
                         <TableHead>Plaza</TableHead>
+                        <TableHead>Registrado por</TableHead>
                         <TableHead className="text-right">Monto</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -110,6 +112,12 @@ export default function HistoryPage() {
                             <TableCell>
                               <Badge variant="outline">{payment.plaza}</Badge>
                             </TableCell>
+                            <TableCell>
+                              <Badge variant="secondary" className="flex items-center gap-1.5 w-fit">
+                                <User className="h-3 w-3" />
+                                {payment.user || 'N/A'}
+                              </Badge>
+                            </TableCell>
                             <TableCell className="text-right font-semibold text-green-600">
                               +${payment.monto.toLocaleString('en-US', { minimumFractionDigits: 2 })}
                             </TableCell>
@@ -117,7 +125,7 @@ export default function HistoryPage() {
                         ))
                       ) : (
                         <TableRow>
-                          <TableCell colSpan={4} className="h-24 text-center">
+                          <TableCell colSpan={5} className="h-24 text-center">
                             No hay abonos registrados.
                           </TableCell>
                         </TableRow>
@@ -198,5 +206,3 @@ export default function HistoryPage() {
     </div>
   );
 }
-
-    

@@ -4,6 +4,7 @@ export type Payment = {
   monto: number;
   saldoAnterior: number;
   saldoNuevo: number;
+  user?: string; // User who registered the payment
   clienteId?: string; // For global history
   clienteNombre?: string; // For global history
   plaza?: string; // For global history
