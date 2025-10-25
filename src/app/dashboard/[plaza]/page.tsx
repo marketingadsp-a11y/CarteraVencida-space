@@ -37,7 +37,7 @@ import { useToast } from '@/hooks/use-toast';
 export default function PlazaPage({ params }: { params: { plaza: string } }) {
   const { clients, currentUser, deleteClientsByPlaza } = useContext(AppContext);
   const { toast } = useToast();
-  const plazaName = decodeURIComponent(params.plaza);
+  const plazaName = useMemo(() => decodeURIComponent(params.plaza), [params.plaza]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const [isClientFormOpen, setIsClientFormOpen] = useState(false);
