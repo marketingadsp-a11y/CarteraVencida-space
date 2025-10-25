@@ -37,7 +37,7 @@ import { useToast } from '@/hooks/use-toast';
 export default function PlazaPage({ params }: { params: { plaza: string } }) {
   const { clients, currentUser, deleteClientsByPlaza } = useContext(AppContext);
   const { toast } = useToast();
-  const plazaName = useMemo(() => decodeURIComponent(params.plaza), [params.plaza]);
+  const plazaName = decodeURIComponent(params.plaza);
   const [searchTerm, setSearchTerm] = useState('');
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const [isClientFormOpen, setIsClientFormOpen] = useState(false);
@@ -51,7 +51,7 @@ export default function PlazaPage({ params }: { params: { plaza: string } }) {
   }, [currentUser]);
 
   const permissions = useMemo(() => {
-    const defaultPermissions = { canRegister: false, canImport: false, canExport: false, hasAccess: false };
+    const defaultPermissions = { canRegister: false, canImport: false, canExport: false, canExportHistory: false, hasAccess: false };
     if (!currentUser) return defaultPermissions;
 
     if (isUserAdmin) { // It's an Admin
