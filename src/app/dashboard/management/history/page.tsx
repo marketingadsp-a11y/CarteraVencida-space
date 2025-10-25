@@ -10,9 +10,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { PiggyBank, History as HistoryIcon, User, Building, Trash2, Edit, FileUp, LogIn, CreditCard } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
+import { PiggyBank, History as HistoryIcon, User, Building, Trash2, Edit, FileUp, LogIn, CreditCard, CalendarIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
+import { DateRange } from 'react-day-picker';
 
 const getActionIcon = (type: ActionLog['type']) => {
   switch (type) {
@@ -27,9 +32,11 @@ const getActionIcon = (type: ActionLog['type']) => {
 }
 
 export default function HistoryPage() {
-  const { actionLogs, allPayments } = useContext(AppContext);
+  const { actionLogs, allPayments, plazas } = useContext(AppContext);
   const [actionSearch, setActionSearch] = useState('');
   const [paymentSearch, setPaymentSearch] = useState('');
+  const [selectedPlaza, setSelectedPlaza] = useState('all');
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
 
   const filteredActionLogs = useMemo(() => {
     if (!actionSearch) return actionLogs;
@@ -38,15 +45,6 @@ export default function HistoryPage() {
       log.user.toLowerCase().includes(actionSearch.toLowerCase())
     );
   }, [actionLogs, actionSearch]);
-
-  const filteredPayments = useMemo(() => {
-    if (!paymentSearch) return allPayments;
-    return allPayments.filter(payment =>
-      payment.clienteNombre?.toLowerCase().includes(paymentSearch.toLowerCase()) ||
-      payment.plaza?.toLowerCase().includes(paymentSearch.toLowerCase()) ||
-      payment.user?.toLowerCase().includes(paymentSearch.toLowerCase())
-    );
-  }, [allPayments, paymentSearch]);
 
   const parsePaymentDate = (dateString: string) => {
     // Try parsing YYYY-MM-DD first
@@ -58,9 +56,41 @@ export default function HistoryPage() {
     return date;
   }
 
+  const filteredPayments = useMemo(() => {
+    let payments = allPayments;
+
+    if (selectedPlaza !== 'all') {
+      payments = payments.filter(p => p.plaza === selectedPlaza);
+    }
+    
+    if (dateRange?.from) {
+      const fromDate = new Date(dateRange.from);
+      fromDate.setHours(0, 0, 0, 0);
+      payments = payments.filter(p => parsePaymentDate(p.fecha) >= fromDate);
+    }
+    
+    if (dateRange?.to) {
+      const toDate = new Date(dateRange.to);
+      toDate.setHours(23, 59, 59, 999);
+      payments = payments.filter(p => parsePaymentDate(p.fecha) <= toDate);
+    }
+    
+    if (!paymentSearch) return payments;
+    return payments.filter(payment =>
+      payment.clienteNombre?.toLowerCase().includes(paymentSearch.toLowerCase()) ||
+      payment.plaza?.toLowerCase().includes(paymentSearch.toLowerCase()) ||
+      payment.user?.toLowerCase().includes(paymentSearch.toLowerCase())
+    );
+  }, [allPayments, paymentSearch, selectedPlaza, dateRange]);
+  
+  const filteredTotalPayments = useMemo(() => {
+    return filteredPayments.reduce((acc, p) => acc + p.monto, 0);
+  }, [filteredPayments]);
+
+
   return (
     <div className="flex flex-col gap-6">
-      <Tabs defaultValue="payments" className="pt-2">
+      <Tabs defaultValue="payments" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="payments">
             <PiggyBank className="mr-2" /> Historial de Abonos
@@ -73,7 +103,7 @@ export default function HistoryPage() {
         <TabsContent value="payments">
           <Card>
             <CardHeader>
-              <div className="flex justify-between items-center">
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                   <div>
                     <CardTitle>Historial de Abonos</CardTitle>
                     <CardDescription>Todos los abonos registrados en el sistema.</CardDescription>
@@ -87,7 +117,70 @@ export default function HistoryPage() {
               </div>
             </CardHeader>
             <CardContent>
-              <ScrollArea className="h-[60vh]">
+              <div className="flex flex-col sm:flex-row gap-4 mb-6 p-4 border rounded-lg bg-muted/50">
+                  <div className="flex-1">
+                      <p className="text-sm text-muted-foreground font-medium">Abonos Recibidos (filtrados)</p>
+                      <p className="text-2xl font-bold text-green-600">
+                          ${filteredTotalPayments.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                      </p>
+                  </div>
+                  <div className="flex flex-col sm:flex-row gap-4 flex-1 sm:items-center sm:justify-end">
+                      <div className="grid gap-2">
+                          <Label>Plaza</Label>
+                          <Select value={selectedPlaza} onValueChange={setSelectedPlaza}>
+                            <SelectTrigger className="w-full sm:w-[180px]">
+                                <SelectValue placeholder="Seleccionar plaza" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">Todas las plazas</SelectItem>
+                                {plazas.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                      </div>
+                      <div className="grid gap-2">
+                          <Label>Rango de Fechas</Label>
+                          <Popover>
+                              <PopoverTrigger asChild>
+                                <Button
+                                  id="date"
+                                  variant={"outline"}
+                                  className={cn(
+                                    "w-full sm:w-[300px] justify-start text-left font-normal",
+                                    !dateRange && "text-muted-foreground"
+                                  )}
+                                >
+                                  <CalendarIcon className="mr-2 h-4 w-4" />
+                                  {dateRange?.from ? (
+                                    dateRange.to ? (
+                                      <>
+                                        {format(dateRange.from, "LLL dd, y")} -{" "}
+                                        {format(dateRange.to, "LLL dd, y")}
+                                      </>
+                                    ) : (
+                                      format(dateRange.from, "LLL dd, y")
+                                    )
+                                  ) : (
+                                    <span>Seleccione un rango</span>
+                                  )}
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto p-0" align="end">
+                                <Calendar
+                                  initialFocus
+                                  mode="range"
+                                  defaultMonth={dateRange?.from}
+                                  selected={dateRange}
+                                  onSelect={setDateRange}
+                                  numberOfMonths={2}
+                                  locale={es}
+                                />
+                              </PopoverContent>
+                          </Popover>
+                      </div>
+                  </div>
+              </div>
+
+              <ScrollArea className="h-[50vh]">
                 <div className="rounded-md border">
                   <Table>
                     <TableHeader className="sticky top-0 bg-muted">
@@ -103,7 +196,7 @@ export default function HistoryPage() {
                       {filteredPayments.length > 0 ? (
                         filteredPayments.map((payment) => (
                           <TableRow key={payment.id}>
-                            <TableCell>{payment.fecha ? format(parsePaymentDate(payment.fecha), "dd/MM/yyyy") : 'N/A'}</TableCell>
+                            <TableCell>{payment.fecha ? format(parsePaymentDate(payment.fecha), "dd/MM/yyyy", { locale: es }) : 'N/A'}</TableCell>
                             <TableCell className="font-medium">{payment.clienteNombre}</TableCell>
                             <TableCell>
                               <Badge variant="outline">{payment.plaza}</Badge>
@@ -122,7 +215,7 @@ export default function HistoryPage() {
                       ) : (
                         <TableRow>
                           <TableCell colSpan={5} className="h-24 text-center">
-                            No hay abonos registrados.
+                            No hay abonos que coincidan con los filtros.
                           </TableCell>
                         </TableRow>
                       )}
