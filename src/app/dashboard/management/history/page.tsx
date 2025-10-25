@@ -14,11 +14,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
-import { PiggyBank, History as HistoryIcon, User, Building, Trash2, Edit, FileUp, LogIn, CreditCard, CalendarIcon } from 'lucide-react';
+import { PiggyBank, History as HistoryIcon, User, Trash2, Edit, FileUp, LogIn, CreditCard, CalendarIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { DateRange } from 'react-day-picker';
 import { Label } from '@/components/ui/label';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { useToast } from '@/hooks/use-toast';
 
 const getActionIcon = (type: ActionLog['type']) => {
   switch (type) {
@@ -32,25 +34,40 @@ const getActionIcon = (type: ActionLog['type']) => {
   }
 }
 
+type DeletionTarget = {
+    type: 'payment' | 'action';
+    id: string;
+    clientId?: string;
+}
+
 export default function HistoryPage() {
-  const { actionLogs, allPayments, plazas } = useContext(AppContext);
+  const { allPayments, actionLogs, plazas, currentUser, deletePayment, deleteActionLog } = useContext(AppContext);
+  const { toast } = useToast();
+  
   const [actionSearch, setActionSearch] = useState('');
   const [paymentSearch, setPaymentSearch] = useState('');
   const [selectedPlaza, setSelectedPlaza] = useState('all');
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
 
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [deletionTarget, setDeletionTarget] = useState<DeletionTarget | null>(null);
+  const [confirmationCode, setConfirmationCode] = useState("");
+
+  const isSuperAdmin = useMemo(() => currentUser?.username === 'Cristobal', [currentUser]);
+
   const filteredActionLogs = useMemo(() => {
-    if (!actionSearch) return actionLogs;
-    return actionLogs.filter(log =>
-      log.action.toLowerCase().includes(actionSearch.toLowerCase()) ||
-      log.user.toLowerCase().includes(actionSearch.toLowerCase())
-    );
+    let logs = [...actionLogs];
+    if (actionSearch) {
+        logs = logs.filter(log =>
+            log.action.toLowerCase().includes(actionSearch.toLowerCase()) ||
+            log.user.toLowerCase().includes(actionSearch.toLowerCase())
+        );
+    }
+    return logs;
   }, [actionLogs, actionSearch]);
 
   const parsePaymentDate = (dateString: string) => {
-    // Try parsing YYYY-MM-DD first
     let date = parse(dateString, 'yyyy-MM-dd', new Date());
-    // If invalid, try parsing DD/MM/YYYY
     if (isNaN(date.getTime())) {
       date = parse(dateString, 'dd/MM/yyyy', new Date());
     }
@@ -58,7 +75,7 @@ export default function HistoryPage() {
   }
 
   const filteredPayments = useMemo(() => {
-    let payments = allPayments;
+    let payments = [...allPayments];
 
     if (selectedPlaza !== 'all') {
       payments = payments.filter(p => p.plaza === selectedPlaza);
@@ -67,26 +84,64 @@ export default function HistoryPage() {
     if (dateRange?.from) {
       const fromDate = new Date(dateRange.from);
       fromDate.setHours(0, 0, 0, 0);
-      payments = payments.filter(p => parsePaymentDate(p.fecha) >= fromDate);
+      payments = payments.filter(p => {
+        const paymentDate = parsePaymentDate(p.fecha);
+        return !isNaN(paymentDate.getTime()) && paymentDate >= fromDate;
+      });
     }
     
     if (dateRange?.to) {
       const toDate = new Date(dateRange.to);
       toDate.setHours(23, 59, 59, 999);
-      payments = payments.filter(p => parsePaymentDate(p.fecha) <= toDate);
+      payments = payments.filter(p => {
+        const paymentDate = parsePaymentDate(p.fecha);
+        return !isNaN(paymentDate.getTime()) && paymentDate <= toDate;
+      });
     }
     
-    if (!paymentSearch) return payments;
-    return payments.filter(payment =>
-      payment.clienteNombre?.toLowerCase().includes(paymentSearch.toLowerCase()) ||
-      payment.plaza?.toLowerCase().includes(paymentSearch.toLowerCase()) ||
-      payment.user?.toLowerCase().includes(paymentSearch.toLowerCase())
-    );
+    if (paymentSearch) {
+        payments = payments.filter(payment =>
+            payment.clienteNombre?.toLowerCase().includes(paymentSearch.toLowerCase()) ||
+            payment.plaza?.toLowerCase().includes(paymentSearch.toLowerCase()) ||
+            payment.user?.toLowerCase().includes(paymentSearch.toLowerCase())
+        );
+    }
+
+    return payments;
   }, [allPayments, paymentSearch, selectedPlaza, dateRange]);
   
   const filteredTotalPayments = useMemo(() => {
     return filteredPayments.reduce((acc, p) => acc + p.monto, 0);
   }, [filteredPayments]);
+
+  const handleDeleteClick = (target: DeletionTarget) => {
+    setDeletionTarget(target);
+    setIsDeleteDialogOpen(true);
+    setConfirmationCode("");
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deletionTarget || confirmationCode !== '0120') {
+      toast({
+        variant: 'destructive',
+        title: 'Código incorrecto',
+        description: 'La eliminación ha sido cancelada.',
+      });
+      setIsDeleteDialogOpen(false);
+      return;
+    }
+
+    if (deletionTarget.type === 'payment' && deletionTarget.clientId) {
+      await deletePayment(deletionTarget.clientId, deletionTarget.id);
+      toast({ title: 'Abono eliminado', description: 'El registro del abono ha sido eliminado y la deuda actualizada.' });
+    } else if (deletionTarget.type === 'action') {
+      await deleteActionLog(deletionTarget.id);
+      toast({ title: 'Acción eliminada', description: 'El registro de la acción ha sido eliminado del historial.' });
+    }
+    
+    setIsDeleteDialogOpen(false);
+    setDeletionTarget(null);
+  };
 
 
   return (
@@ -154,11 +209,11 @@ export default function HistoryPage() {
                                   {dateRange?.from ? (
                                     dateRange.to ? (
                                       <>
-                                        {format(dateRange.from, "LLL dd, y")} -{" "}
-                                        {format(dateRange.to, "LLL dd, y")}
+                                        {format(dateRange.from, "LLL dd, y", {locale: es})} -{" "}
+                                        {format(dateRange.to, "LLL dd, y", {locale: es})}
                                       </>
                                     ) : (
-                                      format(dateRange.from, "LLL dd, y")
+                                      format(dateRange.from, "LLL dd, y", {locale: es})
                                     )
                                   ) : (
                                     <span>Seleccione un rango</span>
@@ -191,12 +246,13 @@ export default function HistoryPage() {
                         <TableHead>Plaza</TableHead>
                         <TableHead>Registrado por</TableHead>
                         <TableHead className="text-right">Monto</TableHead>
+                         {isSuperAdmin && <TableHead className="text-right">Acción</TableHead>}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {filteredPayments.length > 0 ? (
                         filteredPayments.map((payment) => (
-                          <TableRow key={payment.id}>
+                          <TableRow key={`${payment.id}-${payment.clienteId}`}>
                             <TableCell>{payment.fecha ? format(parsePaymentDate(payment.fecha), "dd/MM/yyyy", { locale: es }) : 'N/A'}</TableCell>
                             <TableCell className="font-medium">{payment.clienteNombre}</TableCell>
                             <TableCell>
@@ -211,11 +267,22 @@ export default function HistoryPage() {
                             <TableCell className="text-right font-semibold text-green-600">
                               +${payment.monto.toLocaleString('en-US', { minimumFractionDigits: 2 })}
                             </TableCell>
+                            {isSuperAdmin && (
+                                <TableCell className="text-right">
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={() => handleDeleteClick({type: 'payment', id: payment.id, clientId: payment.clienteId})}
+                                    >
+                                        <Trash2 className="h-4 w-4 text-destructive" />
+                                    </Button>
+                                </TableCell>
+                            )}
                           </TableRow>
                         ))
                       ) : (
                         <TableRow>
-                          <TableCell colSpan={5} className="h-24 text-center">
+                          <TableCell colSpan={isSuperAdmin ? 6 : 5} className="h-24 text-center">
                             No hay abonos que coincidan con los filtros.
                           </TableCell>
                         </TableRow>
@@ -253,6 +320,7 @@ export default function HistoryPage() {
                         <TableHead className="w-[200px]">Fecha y Hora</TableHead>
                         <TableHead className="w-[150px]">Usuario</TableHead>
                         <TableHead>Acción Realizada</TableHead>
+                         {isSuperAdmin && <TableHead className="text-right">Acción</TableHead>}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -276,11 +344,22 @@ export default function HistoryPage() {
                                 </span>
                                 <span className="flex-grow">{log.action}</span>
                             </TableCell>
+                            {isSuperAdmin && (
+                                <TableCell className="text-right">
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={() => handleDeleteClick({type: 'action', id: log.id})}
+                                    >
+                                        <Trash2 className="h-4 w-4 text-destructive" />
+                                    </Button>
+                                </TableCell>
+                            )}
                           </TableRow>
                         ))
                       ) : (
                         <TableRow>
-                          <TableCell colSpan={3} className="h-24 text-center">
+                          <TableCell colSpan={isSuperAdmin ? 4 : 3} className="h-24 text-center">
                             No hay acciones registradas.
                           </TableCell>
                         </TableRow>
@@ -293,6 +372,31 @@ export default function HistoryPage() {
           </Card>
         </TabsContent>
       </Tabs>
+       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Eliminación</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta acción es irreversible. Para confirmar la eliminación, por favor ingrese el código de seguridad.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-2">
+            <Input
+              type="password"
+              placeholder="Código de seguridad"
+              value={confirmationCode}
+              onChange={(e) => setConfirmationCode(e.target.value)}
+              autoFocus
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDelete} className="bg-destructive hover:bg-destructive/90">
+              Confirmar y Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -52,6 +52,7 @@ interface AppContextType {
   updateUser: (id: string, userData: Omit<User, 'id' | 'password'> & { password?: string }) => Promise<boolean>;
   deleteUser: (id: string) => Promise<void>;
   actionLogs: ActionLog[];
+  deleteActionLog: (logId: string) => Promise<void>;
   allPayments: Payment[];
   isFirebaseConfigured: boolean;
 }
@@ -86,6 +87,7 @@ export const AppContext = createContext<AppContextType>({
   updateUser: async () => false,
   deleteUser: async () => {},
   actionLogs: [],
+  deleteActionLog: async () => {},
   allPayments: [],
   isFirebaseConfigured: false,
 });
@@ -297,7 +299,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const newAdeudo = typeof dataToUpdate.adeudo === 'number' ? dataToUpdate.adeudo : originalClient.adeudo;
     dataToUpdate.recuperado = newAdeudo <= 0;
 
-    const fieldLabels: { [key in keyof Client]?: string } = {
+    const fieldLabels: { [key in keyof Partial<Client>]?: string } = {
         nombre: 'Nombre',
         direccion: 'Dirección',
         telefono: 'Teléfono',
@@ -307,6 +309,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         pago: 'Pago ($)',
         vencidos: 'No. Vencidos',
         adeudo: 'Adeudo ($)',
+        recuperado: 'Estado Recuperado'
     };
 
     const changes = Object.keys(dataToUpdate)
@@ -320,8 +323,10 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
     await updateDoc(clientRef, dataToUpdate);
 
-    const logMessage = `Actualizó al cliente "${originalClient.nombre}"${changes ? `. Cambios: ${changes}` : ''}`;
-    logAction('UPDATE', logMessage);
+    if (changes) {
+      const logMessage = `Actualizó al cliente "${originalClient.nombre}". Cambios: ${changes}`;
+      logAction('UPDATE', logMessage, { clientId: id, changes });
+    }
   }, [logAction]);
 
 
@@ -333,7 +338,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const clientData = clientSnap.data() as Client;
 
     await deleteDoc(clientRef);
-    logAction('DELETE', `Eliminó al cliente "${clientData.nombre}" de la plaza ${clientData.plaza}.`);
+    logAction('DELETE', `Eliminó al cliente "${clientData.nombre}" de la plaza ${clientData.plaza}.`, { clientId: id, clientName: clientData.nombre });
   }, [logAction]);
 
   const addPayment = useCallback(async (clientId: string, monto: number) => {
@@ -345,8 +350,8 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       const paymentDate = new Date();
       
       const newPayment: Payment = {
-        id: paymentDate.toISOString() + Math.random().toString(36).substr(2, 9),
-        fecha: paymentDate.toISOString().split('T')[0],
+        id: `${paymentDate.getTime()}-${Math.random().toString(36).substring(2, 11)}`,
+        fecha: paymentDate.toISOString().split('T')[0], // YYYY-MM-DD format
         monto,
         saldoAnterior: client.adeudo,
         saldoNuevo: Math.max(0, client.adeudo - monto),
@@ -357,7 +362,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         recuperado: newPayment.saldoNuevo <= 0,
         historialPagos: [...(client.historialPagos || []), newPayment],
       });
-      logAction('PAYMENT', `Registró un abono de $${monto} para el cliente "${client.nombre}".`);
+      logAction('PAYMENT', `Registró un abono de $${monto} para el cliente "${client.nombre}".`, { clientId, clientName: client.nombre, amount: monto });
     }
   }, [logAction, currentUser]);
 
@@ -380,10 +385,16 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                 recuperado: newAdeudo <= 0,
                 historialPagos: newHistorial,
             });
-            logAction('DELETE', `Eliminó un abono de $${paymentToDelete.monto} del cliente "${client.nombre}".`);
+            logAction('DELETE', `Eliminó un abono de $${paymentToDelete.monto} del cliente "${client.nombre}".`, { clientId, clientName: client.nombre, paymentId, amount: paymentToDelete.monto });
         }
     }
   }, [logAction]);
+
+  const deleteActionLog = useCallback(async (logId: string) => {
+    if (!db || currentUser?.username !== 'Cristobal') return;
+    await deleteDoc(doc(db, 'action_logs', logId));
+  }, [currentUser]);
+
 
   const deleteClientsByPlaza = useCallback(async (plazaName: string) => {
     if (!db) return;
@@ -396,7 +407,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       batch.delete(doc.ref);
     });
     await batch.commit();
-    logAction('DELETE', `Eliminó todos los clientes de la plaza "${plazaName}".`);
+    logAction('DELETE', `Eliminó todos los ${snapshot.size} clientes de la plaza "${plazaName}".`, { plazaName });
   }, [logAction]);
 
   const addPlaza = useCallback(async (plazaName: string) => {
@@ -539,7 +550,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         plaza: client.plaza,
       }))
     ).sort((a, b) => {
-        // Handle both 'YYYY-MM-DD' and 'DD/MM/YYYY' formats
         const dateA = a.fecha.includes('/') ? new Date(a.fecha.split('/').reverse().join('-')) : new Date(a.fecha);
         const dateB = b.fecha.includes('/') ? new Date(b.fecha.split('/').reverse().join('-')) : new Date(b.fecha);
         return dateB.getTime() - dateA.getTime();
@@ -576,6 +586,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     updateUser,
     deleteUser,
     actionLogs,
+    deleteActionLog,
     allPayments,
     isFirebaseConfigured,
   };
