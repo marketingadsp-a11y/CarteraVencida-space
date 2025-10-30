@@ -338,6 +338,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const clientData = clientSnap.data() as Client;
 
     await deleteDoc(clientRef);
+    setClientsState(prevClients => prevClients.filter(c => c.id !== id));
     logAction('DELETE', `Eliminó al cliente "${clientData.nombre}" de la plaza ${clientData.plaza}.`, { clientId: id, clientName: clientData.nombre });
   }, [logAction]);
 
