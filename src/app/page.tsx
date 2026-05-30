@@ -73,7 +73,7 @@ function ParticleBackground() {
       ctx.fillStyle = grad;
       ctx.fillRect(0, 0, width, height);
 
-      // Draw particles
+      // Draw particles as dollar signs ($)
       particles.forEach((p) => {
         p.x += p.vx;
         p.y += p.vy;
@@ -81,10 +81,11 @@ function ParticleBackground() {
         if (p.x < 0 || p.x > width) p.vx *= -1;
         if (p.y < 0 || p.y > height) p.vy *= -1;
 
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
         ctx.fillStyle = "rgba(79, 70, 229, 0.55)"; // Much more visible indigo
-        ctx.fill();
+        ctx.font = `bold ${p.radius * 3.5}px system-ui, sans-serif`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("$", p.x, p.y);
       });
 
       // Draw connections
