@@ -293,6 +293,21 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     if (appName) document.title = `${appName} - Cartera`;
   }, [appName]);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const links = document.querySelectorAll("link[rel*='icon']");
+    if (links.length > 0) {
+      links.forEach(link => {
+        (link as HTMLLinkElement).href = logoUrl ? logoUrl : '/favicon.ico';
+      });
+    } else {
+      const link = document.createElement('link');
+      link.rel = 'icon';
+      link.href = logoUrl ? logoUrl : '/favicon.ico';
+      document.head.appendChild(link);
+    }
+  }, [logoUrl]);
+
   const setAppName = useCallback(async (name: string) => {
     if (!db) return;
     await setDoc(doc(db, 'settings', 'appName'), { name });
