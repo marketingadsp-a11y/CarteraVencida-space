@@ -7,6 +7,7 @@ import StatCard from '@/components/dashboard/StatCard';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from "@/components/ui/progress";
+import { Separator } from '@/components/ui/separator';
 import { DollarSign, Users, UserCheck, Percent, ArrowRight, Building, Store, Landmark, Warehouse, School, Factory, Castle, Home, Download } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
@@ -85,82 +86,114 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-6">
       {isUserAdmin && (
-        <>
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative overflow-hidden">
+          {/* Left section: Title & Actions */}
+          <div className="flex flex-col gap-3 min-w-[220px]">
             <div>
-              <h1 className="text-3xl font-bold font-headline tracking-tight">Resumen General</h1>
-              <p className="text-muted-foreground">Vista general de la cartera de clientes.</p>
+              <h1 className="text-lg font-bold font-headline tracking-tight text-slate-800">Resumen General</h1>
+              <p className="text-[10px] text-slate-500 font-medium">Estado consolidado de la cartera</p>
             </div>
-            {isUserAdmin && (
-              <Button onClick={handleExportAllExcel}>
-                <Download /> Exportar Todo (Excel)
-              </Button>
-            )}
+            <Button 
+              onClick={handleExportAllExcel} 
+              className="w-fit bg-primary hover:bg-primary/95 text-white font-semibold shadow-sm transition-transform active:scale-95 text-xs h-8 rounded-lg px-4"
+            >
+              <Download className="mr-1.5 h-3.5 w-3.5" /> Exportar (Excel)
+            </Button>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <StatCard 
-              title="Deuda Total" 
-              value={`$${stats.totalDebt.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} 
-              icon={DollarSign} 
-              variant="destructive"
-              className="bg-gradient-to-br from-red-900 to-rose-500 text-destructive-foreground"
-            />
-            <StatCard title="Clientes Totales" value={stats.totalClients.toString()} icon={Users} />
-            <StatCard 
-              title="Clientes Recuperados" 
-              value={stats.recoveredClients.toString()} 
-              icon={UserCheck} 
-              className="bg-gradient-to-br from-green-600 to-emerald-500 text-white"
-            />
-            <StatCard 
-              title="Tasa de Recuperación" 
-              value={`${stats.recoveryRate.toFixed(1)}%`} 
-              icon={Percent} 
-              className="bg-gradient-to-br from-primary to-blue-400 text-primary-foreground"
-            />
+          {/* Separator */}
+          <div className="hidden lg:block w-[1px] bg-slate-200 self-stretch mx-2" />
+
+          {/* Right section: KPIs Grid */}
+          <div className="flex-1 grid grid-cols-2 md:grid-cols-4 gap-6">
+            {/* Deuda Total KPI */}
+            <div className="flex flex-col">
+              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Deuda Pendiente</span>
+              <span className="text-2xl font-extrabold font-headline tracking-tight text-rose-600">
+                ${stats.totalDebt.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
+              <span className="text-[9px] text-slate-500 font-medium mt-0.5">Saldo activo deudor</span>
+            </div>
+
+            {/* Tasa Recuperación KPI */}
+            <div className="flex flex-col">
+              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Eficiencia de Cobro</span>
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-2xl font-extrabold font-headline tracking-tight text-primary">
+                  {stats.recoveryRate.toFixed(1)}%
+                </span>
+              </div>
+              <Progress value={stats.recoveryRate} className="w-16 bg-slate-100 h-1.5 rounded-full mt-1.5" />
+            </div>
+
+            {/* Clientes Totales KPI */}
+            <div className="flex flex-col">
+              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Clientes Totales</span>
+              <span className="text-2xl font-extrabold text-slate-800">
+                {stats.totalClients}
+              </span>
+              <span className="text-[9px] text-slate-500 font-medium mt-0.5">
+                {stats.totalClients - stats.recoveredClients} con saldo pendiente
+              </span>
+            </div>
+
+            {/* Clientes Recuperados KPI */}
+            <div className="flex flex-col">
+              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Cuentas Liquidadas</span>
+              <span className="text-2xl font-extrabold text-emerald-600">
+                {stats.recoveredClients}
+              </span>
+              <span className="text-[9px] text-slate-500 font-medium mt-0.5">
+                {stats.totalClients > 0 ? ((stats.recoveredClients / stats.totalClients) * 100).toFixed(0) : 0}% de la cartera
+              </span>
+            </div>
           </div>
-        </>
+        </div>
       )}
 
       <div>
-        <h2 className="text-2xl font-bold font-headline tracking-tight mb-4">
+        <h2 className="text-base font-bold font-headline tracking-tight mb-4 text-slate-800">
           {isUserAdmin ? 'Cartera por Plaza' : 'Mis Plazas'}
         </h2>
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {plazaStats.map(plaza => (
-            <Card key={plaza.name} className="flex flex-col justify-between">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                    <plaza.icon className="w-5 h-5 text-accent" />
+            <Link 
+              key={plaza.name} 
+              href={`/dashboard/${encodeURIComponent(plaza.name)}`} 
+              className="group bg-white p-4 rounded-xl border border-slate-200 flex flex-col justify-between hover:border-slate-350 transition-all duration-200 shadow-sm hover:shadow-md"
+            >
+              <div>
+                {/* Header of Plaza card */}
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="flex items-center gap-2 font-headline font-bold text-sm text-slate-800">
+                    <plaza.icon className="w-4 h-4 text-primary" />
                     {plaza.name}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-0">
-                <div className="mb-6">
-                  <p className="text-sm text-muted-foreground">Deuda Pendiente</p>
-                  <p className="text-3xl font-bold text-destructive">
-                    ${plaza.pendingDebt.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </p>
+                  </h3>
+                  <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
                 </div>
-                <div>
-                  <div className="text-sm text-muted-foreground mb-2">Tasa de Recuperación</div>
-                  <div className="flex items-center gap-2">
-                      <Progress value={plaza.recoveryRate} className="w-full" />
-                      <span className="font-bold">{plaza.recoveryRate.toFixed(1)}%</span>
+
+                <Separator className="bg-slate-100 my-2" />
+
+                {/* Metrics row */}
+                <div className="grid grid-cols-2 gap-4 items-center">
+                  <div>
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block">Deuda Pendiente</span>
+                    <span className="text-lg font-extrabold tracking-tight text-rose-600 mt-0.5 block">
+                      ${plaza.pendingDebt.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                  <div className="flex flex-col items-end text-right">
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block">Recuperación</span>
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <span className="font-bold text-xs text-slate-700">{plaza.recoveryRate.toFixed(1)}%</span>
+                      <Progress value={plaza.recoveryRate} className="w-10 bg-slate-100 h-1 rounded-full" />
+                    </div>
                   </div>
                 </div>
-              </CardContent>
-              <CardFooter>
-                 <Link href={`/dashboard/${encodeURIComponent(plaza.name)}`} className="w-full">
-                    <Button className="w-full bg-primary hover:bg-primary/90">
-                        Ver Detalles <ArrowRight className="ml-2 h-4 w-4" />
-                    </Button>
-                </Link>
-              </CardFooter>
-            </Card>
+              </div>
+            </Link>
           ))}
         </div>
       </div>

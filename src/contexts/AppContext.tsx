@@ -3,7 +3,7 @@
 import React, { createContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Client, Admin, User, Payment, ActionLog } from '@/lib/constants';
-import { db, isFirebaseConfigured } from '@/lib/firebase';
+import { db as firebaseDb, isFirebaseConfigured } from '@/lib/firebase';
 import {
   collection,
   onSnapshot,
@@ -30,6 +30,8 @@ interface AppContextType {
   logout: () => void;
   appName: string;
   setAppName: (name: string) => Promise<void>;
+  logoUrl: string;
+  setLogoUrl: (url: string) => Promise<void>;
   clients: Client[];
   setClients: (clients: Client[], plazaName: string, mode: 'add' | 'replace') => Promise<void>;
   addClient: (clientData: Omit<Client, 'id' | 'recuperado' | 'historialPagos'>) => Promise<void>;
@@ -65,6 +67,8 @@ export const AppContext = createContext<AppContextType>({
   logout: () => {},
   appName: 'Planet',
   setAppName: async () => {},
+  logoUrl: '',
+  setLogoUrl: async () => {},
   clients: [],
   setClients: async () => {},
   addClient: async () => {},
@@ -93,9 +97,11 @@ export const AppContext = createContext<AppContextType>({
 });
 
 export const AppProvider = ({ children }: { children: React.ReactNode }) => {
+  const db = firebaseDb!;
   const [currentUser, setCurrentUser] = useState<Admin | User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [appName, setAppNameState] = useState('Planet');
+  const [logoUrl, setLogoUrlState] = useState('');
   const [clients, setClientsState] = useState<Client[]>([]);
   const [plazas, setPlazas] = useState<string[]>([]);
   const [admins, setAdmins] = useState<Admin[]>([]);
@@ -122,63 +128,32 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }, [currentUser]);
 
+  // 1. Initial configuration check and seeding
   useEffect(() => {
     if (!isFirebaseConfigured || !db) {
       setIsLoading(false);
       return;
     }
 
-    try {
-      const storedUser = localStorage.getItem('currentUser');
-      if (storedUser) {
-        setCurrentUser(JSON.parse(storedUser));
-      }
-    } catch (error) {
-      console.error("Could not access localStorage", error);
-    }
-
-    const q = query(collection(db, 'action_logs'), orderBy('timestamp', 'desc'));
-    const logUnsubscribe = onSnapshot(q, (snapshot) => {
-        const logs = snapshot.docs.map(doc => {
-            const data = doc.data();
-            return {
-                ...data,
-                id: doc.id,
-                timestamp: (data.timestamp as Timestamp).toDate().toISOString(),
-            } as ActionLog;
-        });
-        setActionLogs(logs);
-    });
-
-    const unsubscribes = [
-      onSnapshot(doc(db, 'settings', 'appName'), (doc) => {
-        if (doc.exists() && doc.data().name) {
-          setAppNameState(doc.data().name);
+    const initialize = async () => {
+      try {
+        const storedUser = localStorage.getItem('currentUser');
+        if (storedUser) {
+          setCurrentUser(JSON.parse(storedUser));
         }
-      }),
-      onSnapshot(collection(db, 'admins'), (snapshot) => {
-        const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Admin));
-        setAdmins(data);
-      }),
-      onSnapshot(collection(db, 'users'), (snapshot) => {
-        const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as User));
-        setUsers(data);
-      }),
-      onSnapshot(collection(db, 'plazas'), (snapshot) => {
-        const data = snapshot.docs.map(doc => doc.data().name as string).sort();
-        setPlazas(data);
-      }),
-      onSnapshot(collection(db, 'clients'), (snapshot) => {
-        const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Client));
-        setClientsState(data.sort((a, b) => a.nombre.localeCompare(b.nombre)));
-      }),
-      logUnsubscribe,
-    ];
+      } catch (error) {
+        console.error("Could not access localStorage", error);
+      }
 
-    const checkAndSeedData = async () => {
+      try {
         const settingsSnap = await getDoc(doc(db, 'settings', 'appName'));
         if (!settingsSnap.exists()) {
              await setDoc(doc(db, 'settings', 'appName'), { name: 'Planet' });
+        }
+
+        const logoSnap = await getDoc(doc(db, 'settings', 'logoUrl'));
+        if (!logoSnap.exists()) {
+             await setDoc(doc(db, 'settings', 'logoUrl'), { url: '' });
         }
         
         const adminsSnapshot = await getDocs(collection(db, 'admins'));
@@ -198,12 +173,121 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             });
             await batch.commit();
         }
+      } catch (error) {
+        console.error("Error seeding initial data:", error);
+      } finally {
+        setIsLoading(false);
+      }
     };
 
-    checkAndSeedData().finally(() => setIsLoading(false));
-    
-    return () => unsubscribes.forEach(unsub => unsub());
+    initialize();
   }, []);
+
+  // 2. Active subscriptions based on logged-in user
+  useEffect(() => {
+    if (!isFirebaseConfigured || !db) return;
+
+    // Subscription to appName (always needed)
+    const appNameUnsub = onSnapshot(doc(db, 'settings', 'appName'), (doc) => {
+      if (doc.exists() && doc.data().name) {
+        setAppNameState(doc.data().name);
+      }
+    });
+
+    // Subscription to logoUrl (always needed)
+    const logoUrlUnsub = onSnapshot(doc(db, 'settings', 'logoUrl'), (doc) => {
+      if (doc.exists() && doc.data().url !== undefined) {
+        setLogoUrlState(doc.data().url);
+      }
+    });
+
+    if (!currentUser) {
+      setClientsState([]);
+      setPlazas([]);
+      setAdmins([]);
+      setUsers([]);
+      setActionLogs([]);
+      return () => {
+        appNameUnsub();
+        logoUrlUnsub();
+      };
+    }
+
+    const isAdmin = !('plazas' in currentUser);
+    const unsubscribes: (() => void)[] = [appNameUnsub, logoUrlUnsub];
+
+    // Plazas subscription
+    unsubscribes.push(
+      onSnapshot(collection(db, 'plazas'), (snapshot) => {
+        const data = snapshot.docs.map(doc => doc.data().name as string).sort();
+        setPlazas(data);
+      })
+    );
+
+    // Clients subscription (Admin gets all, standard User gets only assigned plazas)
+    let clientsQuery = null;
+    if (isAdmin) {
+      clientsQuery = collection(db, 'clients');
+    } else {
+      const allowedPlazas = (currentUser as User).plazas?.map(p => p.plazaName) || [];
+      if (allowedPlazas.length > 0) {
+        clientsQuery = query(collection(db, 'clients'), where('plaza', 'in', allowedPlazas));
+      }
+    }
+
+    if (clientsQuery) {
+      unsubscribes.push(
+        onSnapshot(clientsQuery, (snapshot) => {
+          const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Client));
+          setClientsState(data.sort((a, b) => a.nombre.localeCompare(b.nombre)));
+        }, (error) => {
+          console.error("Error listening to clients:", error);
+        })
+      );
+    } else {
+      setClientsState([]);
+    }
+
+    // Admin-only subscriptions
+    if (isAdmin) {
+      const logQuery = query(collection(db, 'action_logs'), orderBy('timestamp', 'desc'));
+      unsubscribes.push(
+        onSnapshot(logQuery, (snapshot) => {
+          const logs = snapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+              ...data,
+              id: doc.id,
+              timestamp: (data.timestamp as Timestamp).toDate().toISOString(),
+            } as ActionLog;
+          });
+          setActionLogs(logs);
+        })
+      );
+
+      unsubscribes.push(
+        onSnapshot(collection(db, 'admins'), (snapshot) => {
+          const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Admin));
+          setAdmins(data);
+        })
+      );
+
+      unsubscribes.push(
+        onSnapshot(collection(db, 'users'), (snapshot) => {
+          const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as User));
+          setUsers(data);
+        })
+      );
+    } else {
+      setAdmins([]);
+      setUsers([]);
+      setActionLogs([]);
+    }
+
+    return () => {
+      unsubscribes.forEach(unsub => unsub());
+    };
+  }, [currentUser]);
 
   useEffect(() => {
     if (appName) document.title = `${appName} - Cartera`;
@@ -213,6 +297,12 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     if (!db) return;
     await setDoc(doc(db, 'settings', 'appName'), { name });
     logAction('UPDATE', `Cambió el nombre de la aplicación a "${name}"`);
+  }, [logAction]);
+
+  const setLogoUrl = useCallback(async (url: string) => {
+    if (!db) return;
+    await setDoc(doc(db, 'settings', 'logoUrl'), { url });
+    logAction('UPDATE', `Cambió la URL del logotipo de la aplicación a "${url}"`);
   }, [logAction]);
 
   const login = useCallback(async (user: string, pass: string): Promise<boolean> => {
@@ -264,12 +354,15 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
   const setClients = useCallback(async (importedClients: Omit<Client, 'id'>[], plazaName: string, mode: 'add' | 'replace') => {
     if (!db) return;
-    const batch = writeBatch(db);
+    
+    const operations: { type: 'set' | 'delete'; ref: any; data?: any }[] = [];
     
     if (mode === 'replace') {
       const q = query(collection(db, 'clients'), where('plaza', '==', plazaName));
       const snapshot = await getDocs(q);
-      snapshot.forEach(doc => batch.delete(doc.ref));
+      snapshot.forEach(doc => {
+        operations.push({ type: 'delete', ref: doc.ref });
+      });
     }
 
     importedClients.forEach(client => {
@@ -278,13 +371,25 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       if (!newClientData.historialPagos) {
           newClientData.historialPagos = [];
       }
-      batch.set(clientRef, newClientData);
+      operations.push({ type: 'set', ref: clientRef, data: newClientData });
     });
 
-    await batch.commit();
+    const batchSize = 500;
+    for (let i = 0; i < operations.length; i += batchSize) {
+      const chunk = operations.slice(i, i + batchSize);
+      const batch = writeBatch(db);
+      chunk.forEach(op => {
+        if (op.type === 'delete') {
+          batch.delete(op.ref);
+        } else if (op.type === 'set') {
+          batch.set(op.ref, op.data);
+        }
+      });
+      await batch.commit();
+    }
+
     logAction('IMPORT', `Importó ${importedClients.length} clientes a la plaza "${plazaName}" (modo: ${mode}).`);
   }, [logAction]);
-
 
   const updateClient = useCallback(async (id: string, clientData: Partial<Omit<Client, 'id'>>) => {
     if (!db) return;
@@ -295,7 +400,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
     const dataToUpdate: Partial<Omit<Client, 'id'>> = { ...clientData };
     
-    // Always recalculate 'recuperado' status
     const newAdeudo = typeof dataToUpdate.adeudo === 'number' ? dataToUpdate.adeudo : originalClient.adeudo;
     dataToUpdate.recuperado = newAdeudo <= 0;
 
@@ -329,7 +433,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }, [logAction]);
 
-
   const deleteClient = useCallback(async (id: string) => {
     if (!db) return;
     const clientRef = doc(db, 'clients', id);
@@ -352,7 +455,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       
       const newPayment: Payment = {
         id: `${paymentDate.getTime()}-${Math.random().toString(36).substring(2, 11)}`,
-        fecha: paymentDate.toISOString().split('T')[0], // YYYY-MM-DD format
+        fecha: paymentDate.toISOString().split('T')[0],
         monto,
         saldoAnterior: client.adeudo,
         saldoNuevo: Math.max(0, client.adeudo - monto),
@@ -396,18 +499,22 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     await deleteDoc(doc(db, 'action_logs', logId));
   }, [currentUser]);
 
-
   const deleteClientsByPlaza = useCallback(async (plazaName: string) => {
     if (!db) return;
     const q = query(collection(db, 'clients'), where('plaza', '==', plazaName));
     const snapshot = await getDocs(q);
     if (snapshot.empty) return;
 
-    const batch = writeBatch(db);
-    snapshot.forEach(doc => {
-      batch.delete(doc.ref);
-    });
-    await batch.commit();
+    const docs = snapshot.docs;
+    const batchSize = 500;
+    for (let i = 0; i < docs.length; i += batchSize) {
+      const chunk = docs.slice(i, i + batchSize);
+      const batch = writeBatch(db);
+      chunk.forEach(doc => {
+        batch.delete(doc.ref);
+      });
+      await batch.commit();
+    }
     logAction('DELETE', `Eliminó todos los ${snapshot.size} clientes de la plaza "${plazaName}".`, { plazaName });
   }, [logAction]);
 
@@ -430,21 +537,32 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const oldPlazaSnap = await getDocs(qOld);
     if (oldPlazaSnap.empty) return false;
 
-    const batch = writeBatch(db);
-    batch.update(oldPlazaSnap.docs[0].ref, { name: newName });
+    const operations: { type: 'update'; ref: any; data: any }[] = [];
+    operations.push({ type: 'update', ref: oldPlazaSnap.docs[0].ref, data: { name: newName } });
     
     const clientsQuery = query(collection(db, 'clients'), where('plaza', '==', oldName));
     const clientsSnapshot = await getDocs(clientsQuery);
-    clientsSnapshot.forEach(doc => batch.update(doc.ref, { plaza: newName }));
+    clientsSnapshot.forEach(doc => {
+      operations.push({ type: 'update', ref: doc.ref, data: { plaza: newName } });
+    });
 
     const usersToUpdate = users.filter(u => u.plazas.some(p => p.plazaName === oldName));
     usersToUpdate.forEach(user => {
         const userRef = doc(db, 'users', user.id);
         const newPlazas = user.plazas.map(p => p.plazaName === oldName ? { ...p, plazaName: newName } : p);
-        batch.update(userRef, { plazas: newPlazas });
+        operations.push({ type: 'update', ref: userRef, data: { plazas: newPlazas } });
     });
     
-    await batch.commit();
+    const batchSize = 500;
+    for (let i = 0; i < operations.length; i += batchSize) {
+      const chunk = operations.slice(i, i + batchSize);
+      const batch = writeBatch(db);
+      chunk.forEach(op => {
+        batch.update(op.ref, op.data);
+      });
+      await batch.commit();
+    }
+
     logAction('UPDATE', `Actualizó la plaza "${oldName}" a "${newName}".`);
     return true;
   }, [users, logAction]);
@@ -543,6 +661,16 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   }, [currentUser, plazas]);
 
   const allPayments = useMemo(() => {
+    const toComparableDateString = (dateStr: string) => {
+      if (dateStr.includes('/')) {
+        const parts = dateStr.split('/');
+        if (parts.length === 3) {
+          return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+        }
+      }
+      return dateStr;
+    };
+
     return clients.flatMap(client => 
       (client.historialPagos || []).map(p => ({
         ...p,
@@ -551,9 +679,14 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         plaza: client.plaza,
       }))
     ).sort((a, b) => {
-        const dateA = a.fecha.includes('/') ? new Date(a.fecha.split('/').reverse().join('-')) : new Date(a.fecha);
-        const dateB = b.fecha.includes('/') ? new Date(b.fecha.split('/').reverse().join('-')) : new Date(b.fecha);
-        return dateB.getTime() - dateA.getTime();
+        const compA = toComparableDateString(a.fecha);
+        const compB = toComparableDateString(b.fecha);
+        if (compB !== compA) {
+          return compB.localeCompare(compA);
+        }
+        const idA = a.id || '';
+        const idB = b.id || '';
+        return idB.localeCompare(idA);
     });
   }, [clients]);
 
@@ -565,6 +698,8 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     logout,
     appName,
     setAppName,
+    logoUrl,
+    setLogoUrl,
     clients,
     setClients,
     addClient,
@@ -589,7 +724,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     actionLogs,
     deleteActionLog,
     allPayments,
-    isFirebaseConfigured,
+    isFirebaseConfigured: !!isFirebaseConfigured,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

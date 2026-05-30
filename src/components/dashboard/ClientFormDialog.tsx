@@ -23,7 +23,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, FileDown, Trash2 } from "lucide-react";
+import { Loader2, FileDown, Trash2, User as UserIcon, ShieldCheck, DollarSign, Calendar, MapPin, Phone, History } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import jsPDF from 'jspdf';
@@ -147,53 +147,152 @@ export function ClientFormDialog({ isOpen, onOpenChange, plazaName, editingClien
     const handleExportPDF = () => {
         if (!editingClient) return;
 
-        const doc = new jsPDF();
+        const doc = new jsPDF({
+            orientation: 'portrait',
+            unit: 'mm',
+            format: 'a4'
+        });
         const client = editingClient;
 
+        // 1. Top Decorative Indigo Band
+        doc.setFillColor(79, 70, 229); // Indigo-600
+        doc.rect(15, 15, 180, 5, 'F');
+
+        // 2. Document Title and Plaza Details
+        doc.setFont("helvetica", "bold");
         doc.setFontSize(18);
-        doc.text(`Historial de Cliente: ${client.nombre}`, 14, 22);
+        doc.setTextColor(30, 41, 59); // Slate-800
+        doc.text("ESTADO DE CUENTA", 15, 30);
 
-        doc.setFontSize(11);
-        doc.setTextColor(100);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9);
+        doc.setTextColor(100, 116, 139); // Slate-500
+        const dateStr = new Date().toLocaleDateString('es-MX', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+        doc.text(`Plaza: ${client.plaza.toUpperCase()}  |  Fecha de emisión: ${dateStr}`, 15, 36);
 
-        // Client details
-        let y = 35;
-        doc.text(`Plaza: ${client.plaza}`, 14, y);
-        doc.text(`Fecha de registro: ${client.fecha}`, 14, y += 7);
-        doc.text(`Dirección: ${client.direccion}`, 14, y += 7);
-        doc.text(`Teléfono: ${client.telefono}`, 14, y += 7);
-        doc.text(`Aval: ${client.aval}`, 14, y += 7);
-        doc.text(`Teléfono Aval: ${client.telefonoAval}`, 14, y += 7);
-        
-        y += 10;
-        doc.setFontSize(12);
-        doc.text('Resumen Financiero', 14, y);
+        // 3. Separator Line
+        doc.setDrawColor(226, 232, 240); // Slate-200
+        doc.setLineWidth(0.5);
+        doc.line(15, 40, 195, 40);
+
+        // 4. Client Info & Financial Summary Recuadro
+        doc.setFillColor(248, 250, 252); // Slate-50 background
+        doc.rect(15, 45, 180, 45, 'F');
+        doc.setDrawColor(226, 232, 240);
+        doc.rect(15, 45, 180, 45, 'S');
+
+        // Left Column: Client Details
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(9);
+        doc.setTextColor(79, 70, 229); // Indigo Accent
+        doc.text("DATOS DEL CLIENTE", 20, 52);
+
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8.5);
+        doc.setTextColor(51, 65, 85); // Slate-700
+        doc.text(`Nombre: ${client.nombre.toUpperCase()}`, 20, 58);
+        doc.text(`Dirección: ${client.direccion}`, 20, 64);
+        doc.text(`Teléfono: ${client.telefono}`, 20, 70);
+        doc.text(`Aval: ${client.aval.toUpperCase()} (${client.telefonoAval || "-"})`, 20, 76);
+        doc.text(`Fecha de Registro: ${client.fecha}`, 20, 82);
+
+        // Right Column: Financial Summary
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(9);
+        doc.setTextColor(79, 70, 229); // Indigo Accent
+        doc.text("RESUMEN DE CUENTA", 110, 52);
+
+        const totalPaid = client.prestamo - client.adeudo;
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8.5);
+        doc.setTextColor(51, 65, 85);
+        doc.text(`Monto Prestado: $${client.prestamo.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 110, 58);
+        doc.text(`Total Abonado: $${totalPaid.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 110, 64);
+        doc.text(`Adeudo Pendiente: $${client.adeudo.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 110, 70);
+        doc.text(`Pagos Vencidos: ${client.vencidos}`, 110, 76);
+
+        // 5. Payment History Section Title
+        doc.setFont("helvetica", "bold");
         doc.setFontSize(11);
-        doc.text(`Préstamo Original: $${client.prestamo.toLocaleString('en-US', { minimumFractionDigits: 2 })}`, 14, y += 7);
-        doc.text(`Pagos Totales: $${(client.prestamo - client.adeudo).toLocaleString('en-US', { minimumFractionDigits: 2 })}`, 14, y += 7);
-        doc.text(`Adeudo Actual: $${client.adeudo.toLocaleString('en-US', { minimumFractionDigits: 2 })}`, 14, y += 7);
-        doc.text(`No. Vencidos: ${client.vencidos}`, 14, y += 7);
-        
-        // Payment history
+        doc.setTextColor(30, 41, 59); // Slate-800
+        doc.text("HISTORIAL DE ABONOS", 15, 102);
+
+        // 6. Payment History Table
+        let lastY = 104;
         if (client.historialPagos && client.historialPagos.length > 0) {
             autoTable(doc, {
-                startY: y + 10,
-                head: [['Fecha', 'Monto', 'Saldo Anterior', 'Saldo Nuevo']],
+                startY: 106,
+                head: [['Fecha de Abono', 'Monto Abonado', 'Saldo Anterior', 'Saldo Pendiente']],
                 body: client.historialPagos.slice().reverse().map(p => [
                     p.fecha,
-                    `$${p.monto.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
-                    `$${p.saldoAnterior.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
-                    `$${p.saldoNuevo.toLocaleString('en-US', { minimumFractionDigits: 2 })}`
+                    `$${p.monto.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+                    `$${p.saldoAnterior.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+                    `$${p.saldoNuevo.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                 ]),
-                theme: 'grid',
-                styles: { fontSize: 8 },
-                headStyles: { fontStyle: 'bold' },
+                theme: 'striped',
+                styles: { 
+                    fontSize: 8, 
+                    cellPadding: 3,
+                    lineColor: [241, 245, 249],
+                    lineWidth: 0.2
+                },
+                headStyles: { 
+                    fillColor: [79, 70, 229], 
+                    textColor: [255, 255, 255], 
+                    fontStyle: 'bold', 
+                    fontSize: 8.5 
+                },
+                alternateRowStyles: { 
+                    fillColor: [248, 250, 252] 
+                },
+                columnStyles: { 
+                    0: { halign: 'left' }, 
+                    1: { halign: 'right', fontStyle: 'bold', textColor: [16, 185, 129] }, // emerald green
+                    2: { halign: 'right' }, 
+                    3: { halign: 'right', fontStyle: 'bold', textColor: [225, 29, 72] }  // rose red
+                },
+                didDrawPage: (data) => {
+                    lastY = data.cursor ? data.cursor.y : lastY;
+                }
             });
         } else {
-            doc.text('No hay historial de pagos.', 14, y + 15);
+            doc.setFont("helvetica", "italic");
+            doc.setFontSize(8.5);
+            doc.setTextColor(148, 163, 184); // Slate-400
+            doc.text("No se registran abonos en el historial de este cliente.", 15, 110);
+            lastY = 115;
         }
-        
-        doc.save(`historial_${client.nombre.replace(/ /g, '_')}.pdf`);
+
+        // 7. Signature Line (Discreet)
+        if (lastY < 240) {
+            const sigY = 250;
+            doc.setDrawColor(203, 213, 225); // Slate-300
+            doc.setLineWidth(0.5);
+            doc.line(75, sigY, 135, sigY);
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(8);
+            doc.setTextColor(100, 116, 139);
+            doc.text("Firma de Conformidad", 105, sigY + 4, { align: "center" });
+        }
+
+        // 8. Footer (Page numbers, legal watermark)
+        const pageCount = doc.internal.getNumberOfPages();
+        for (let i = 1; i <= pageCount; i++) {
+            doc.setPage(i);
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(7.5);
+            doc.setTextColor(148, 163, 184); // Slate-400
+            doc.text("Planet Cartera  |  Reporte Oficial de Control Interno", 15, 285);
+            doc.text(`Página ${i} de ${pageCount}`, 195, 285, { align: "right" });
+        }
+
+        doc.save(`estado_cuenta_${client.nombre.toLowerCase().replace(/ /g, '_')}.pdf`);
     };
 
     async function onSubmit(values: z.infer<typeof clientSchema>) {
@@ -242,101 +341,130 @@ export function ClientFormDialog({ isOpen, onOpenChange, plazaName, editingClien
     return (
         <>
             <Dialog open={isOpen} onOpenChange={onOpenChange}>
-                <DialogContent className="sm:max-w-2xl">
-                    <DialogHeader>
-                        <DialogTitle>{isEditMode ? "Ver / Editar Cliente" : "Registrar Nuevo Cliente"}</DialogTitle>
-                        <DialogDescription>
+                <DialogContent className="sm:max-w-2xl border border-slate-200">
+                    <DialogHeader className="pb-3 border-b border-slate-100">
+                        <DialogTitle className="text-base font-bold text-slate-800">{isEditMode ? "Ver / Editar Cliente" : "Registrar Nuevo Cliente"}</DialogTitle>
+                        <DialogDescription className="text-xs text-slate-500">
                             {isEditMode 
                                 ? `Editando los datos de ${editingClient.nombre}.` 
                                 : `Complete los datos para registrar un nuevo cliente en la plaza "${plazaName}".`
                             }
                         </DialogDescription>
                     </DialogHeader>
-                    <div className="max-h-[70vh] overflow-y-auto px-2 -mx-2">
+                    <div className="max-h-[75vh] overflow-y-auto px-1">
                         <Form {...form}>
-                            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <FormField control={form.control} name="nombre" render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Nombre Completo</FormLabel>
-                                            <FormControl><Input placeholder="Juan Perez" {...field} /></FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )} />
-                                    <FormField control={form.control} name="direccion" render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Dirección</FormLabel>
-                                            <FormControl><Input placeholder="Calle Falsa 123" {...field} /></FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )} />
-                                    <FormField control={form.control} name="telefono" render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Teléfono</FormLabel>
-                                            <FormControl><Input placeholder="3171234567" {...field} /></FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )} />
-                                    <FormField control={form.control} name="aval" render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Nombre del Aval</FormLabel>
-                                            <FormControl><Input placeholder="Maria Lopez" {...field} /></FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )} />
-                                    <FormField control={form.control} name="telefonoAval" render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Teléfono del Aval</FormLabel>
-                                            <FormControl><Input placeholder="3177654321" {...field} /></FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )} />
-                                    <FormField control={form.control} name="prestamo" render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Monto del Préstamo ($)</FormLabel>
-                                            <FormControl><Input type="number" step="0.01" placeholder="5000" {...field} /></FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )} />
-                                    <FormField control={form.control} name="pago" render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Monto de Pago ($)</FormLabel>
-                                            <FormControl><Input type="number" step="0.01" placeholder="2500" {...field} /></FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )} />
-                                    <FormField control={form.control} name="vencidos" render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>No. Vencidos</FormLabel>
-                                            <FormControl><Input type="number" step="1" placeholder="3" {...field} /></FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )} />
-                                    <FormField control={form.control} name="adeudo" render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Adeudo Actual ($)</FormLabel>
-                                            <FormControl><Input type="number" step="0.01" placeholder="2500" {...field} /></FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )} />
+                            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-2">
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                    {/* Left Column: Personal Info & Aval */}
+                                    <div className="space-y-4">
+                                        {/* Client Info Card */}
+                                        <div className="bg-slate-50/50 p-4 rounded-lg border border-slate-100 space-y-3">
+                                            <div className="flex items-center gap-1.5 pb-2 border-b border-slate-200/60 mb-2">
+                                                <UserIcon className="h-3.5 w-3.5 text-primary" />
+                                                <h3 className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">Datos del Cliente</h3>
+                                            </div>
+                                            <FormField control={form.control} name="nombre" render={({ field }) => (
+                                                <FormItem className="space-y-1">
+                                                    <FormLabel className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Nombre Completo</FormLabel>
+                                                    <FormControl><Input placeholder="Juan Perez" className="h-8 text-xs bg-white border-slate-200" {...field} /></FormControl>
+                                                    <FormMessage className="text-[10px] text-rose-500" />
+                                                </FormItem>
+                                            )} />
+                                            <FormField control={form.control} name="telefono" render={({ field }) => (
+                                                <FormItem className="space-y-1">
+                                                    <FormLabel className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Teléfono</FormLabel>
+                                                    <FormControl><Input placeholder="3171234567" className="h-8 text-xs bg-white border-slate-200" {...field} /></FormControl>
+                                                    <FormMessage className="text-[10px] text-rose-500" />
+                                                </FormItem>
+                                            )} />
+                                            <FormField control={form.control} name="direccion" render={({ field }) => (
+                                                <FormItem className="space-y-1">
+                                                    <FormLabel className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Dirección</FormLabel>
+                                                    <FormControl><Input placeholder="Calle Falsa 123" className="h-8 text-xs bg-white border-slate-200" {...field} /></FormControl>
+                                                    <FormMessage className="text-[10px] text-rose-500" />
+                                                </FormItem>
+                                            )} />
+                                        </div>
+
+                                        {/* Aval Info Card */}
+                                        <div className="bg-slate-50/50 p-4 rounded-lg border border-slate-100 space-y-3">
+                                            <div className="flex items-center gap-1.5 pb-2 border-b border-slate-200/60 mb-2">
+                                                <ShieldCheck className="h-3.5 w-3.5 text-primary" />
+                                                <h3 className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">Garantía (Aval)</h3>
+                                            </div>
+                                            <FormField control={form.control} name="aval" render={({ field }) => (
+                                                <FormItem className="space-y-1">
+                                                    <FormLabel className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Nombre del Aval</FormLabel>
+                                                    <FormControl><Input placeholder="Maria Lopez" className="h-8 text-xs bg-white border-slate-200" {...field} /></FormControl>
+                                                    <FormMessage className="text-[10px] text-rose-500" />
+                                                </FormItem>
+                                            )} />
+                                            <FormField control={form.control} name="telefonoAval" render={({ field }) => (
+                                                <FormItem className="space-y-1">
+                                                    <FormLabel className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Teléfono del Aval</FormLabel>
+                                                    <FormControl><Input placeholder="3177654321" className="h-8 text-xs bg-white border-slate-200" {...field} /></FormControl>
+                                                    <FormMessage className="text-[10px] text-rose-500" />
+                                                </FormItem>
+                                            )} />
+                                        </div>
+                                    </div>
+
+                                    {/* Right Column: Financial Info Card */}
+                                    <div className="bg-slate-50/50 p-4 rounded-lg border border-slate-100 space-y-3 flex flex-col justify-between">
+                                        <div className="space-y-3 w-full">
+                                            <div className="flex items-center gap-1.5 pb-2 border-b border-slate-200/60 mb-2">
+                                                <DollarSign className="h-3.5 w-3.5 text-primary" />
+                                                <h3 className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">Detalles del Préstamo</h3>
+                                            </div>
+                                            <FormField control={form.control} name="prestamo" render={({ field }) => (
+                                                <FormItem className="space-y-1">
+                                                    <FormLabel className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Monto del Préstamo ($)</FormLabel>
+                                                    <FormControl><Input type="number" step="0.01" placeholder="5000" className="h-8 text-xs bg-white border-slate-200" {...field} /></FormControl>
+                                                    <FormMessage className="text-[10px] text-rose-500" />
+                                                </FormItem>
+                                            )} />
+                                            <FormField control={form.control} name="pago" render={({ field }) => (
+                                                <FormItem className="space-y-1">
+                                                    <FormLabel className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Monto de Pago ($)</FormLabel>
+                                                    <FormControl><Input type="number" step="0.01" placeholder="2500" className="h-8 text-xs bg-white border-slate-200" {...field} /></FormControl>
+                                                    <FormMessage className="text-[10px] text-rose-500" />
+                                                </FormItem>
+                                            )} />
+                                            <FormField control={form.control} name="vencidos" render={({ field }) => (
+                                                <FormItem className="space-y-1">
+                                                    <FormLabel className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">No. Vencidos</FormLabel>
+                                                    <FormControl><Input type="number" step="1" placeholder="3" className="h-8 text-xs bg-white border-slate-200" {...field} /></FormControl>
+                                                    <FormMessage className="text-[10px] text-rose-500" />
+                                                </FormItem>
+                                            )} />
+                                            <FormField control={form.control} name="adeudo" render={({ field }) => (
+                                                <FormItem className="space-y-1">
+                                                    <FormLabel className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Adeudo Actual ($)</FormLabel>
+                                                    <FormControl><Input type="number" step="0.01" placeholder="2500" className="h-8 text-xs bg-white border-slate-200" {...field} /></FormControl>
+                                                    <FormMessage className="text-[10px] text-rose-500" />
+                                                </FormItem>
+                                            )} />
+                                        </div>
+                                    </div>
                                 </div>
-                                <DialogFooter className="pt-4 sticky bottom-0 bg-background py-4 flex-wrap justify-between">
+
+                                <DialogFooter className="pt-3 sticky bottom-0 bg-white border-t border-slate-100 py-3 flex-wrap justify-between gap-3 mt-4 z-20">
                                     <div className="flex gap-2 items-center">
                                         {isEditMode && canExportHistory && (
-                                            <Button type="button" variant="secondary" onClick={handleExportPDF}>
-                                                <FileDown className="mr-2 h-4 w-4" /> Exportar Historial
+                                            <Button type="button" variant="outline" className="h-8 text-xs border-slate-200 text-slate-700 hover:bg-slate-50" onClick={handleExportPDF}>
+                                                <FileDown className="mr-1.5 h-3.5 w-3.5 text-slate-400" /> Exportar Historial
                                             </Button>
                                         )}
                                         {isEditMode && isUserAdmin && (
-                                            <Button type="button" variant="destructive" onClick={() => setIsDeleteDialogOpen(true)}>
-                                                <Trash2 className="mr-2 h-4 w-4" /> Eliminar Cliente
+                                            <Button type="button" variant="ghost" className="h-8 text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-50" onClick={() => setIsDeleteDialogOpen(true)}>
+                                                <Trash2 className="mr-1.5 h-3.5 w-3.5" /> Eliminar Cliente
                                             </Button>
                                         )}
                                     </div>
                                     <div className="flex gap-2 items-center">
-                                        <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-                                        <Button type="submit" disabled={isSubmitting}>
-                                            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                        <Button type="button" variant="outline" className="h-8 text-xs border-slate-200 text-slate-700 hover:bg-slate-50" onClick={() => onOpenChange(false)}>Cancelar</Button>
+                                        <Button type="submit" className="h-8 text-xs bg-primary hover:bg-primary/95 text-white shadow-sm px-4" disabled={isSubmitting}>
+                                            {isSubmitting && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
                                             {isSubmitting ? "Guardando..." : "Guardar Cambios"}
                                         </Button>
                                     </div>
@@ -344,37 +472,40 @@ export function ClientFormDialog({ isOpen, onOpenChange, plazaName, editingClien
                             </form>
                         </Form>
                         {isEditMode && editingClient.historialPagos && editingClient.historialPagos.length > 0 && (
-                            <div className="mt-6">
-                                <Separator />
-                                <h3 className="text-lg font-medium my-4">Historial de Pagos</h3>
-                                <div className="rounded-md border max-h-48 overflow-y-auto">
-                                    <Table>
-                                        <TableHeader className="sticky top-0 bg-muted">
-                                            <TableRow>
-                                                <TableHead>Fecha</TableHead>
-                                                <TableHead className="text-right">Monto</TableHead>
-                                                <TableHead className="text-right">Saldo Anterior</TableHead>
-                                                <TableHead className="text-right">Saldo Nuevo</TableHead>
-                                                {isUserAdmin && <TableHead className="text-right">Acción</TableHead>}
+                            <div className="mt-5 border-t border-slate-100 pt-5 pb-2">
+                                <div className="flex items-center gap-1.5 mb-3">
+                                    <History className="h-3.5 w-3.5 text-primary" />
+                                    <h3 className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">Historial de Pagos</h3>
+                                </div>
+                                <div className="rounded-lg border border-slate-200 max-h-48 overflow-y-auto bg-white shadow-sm">
+                                    <Table className="text-xs">
+                                        <TableHeader className="sticky top-0 bg-slate-50 border-b border-slate-200 z-10">
+                                            <TableRow className="hover:bg-transparent">
+                                                <TableHead className="px-3 py-2 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Fecha</TableHead>
+                                                <TableHead className="px-3 py-2 text-right text-[10px] font-bold text-slate-500 uppercase tracking-wider">Monto</TableHead>
+                                                <TableHead className="px-3 py-2 text-right text-[10px] font-bold text-slate-500 uppercase tracking-wider">Saldo Anterior</TableHead>
+                                                <TableHead className="px-3 py-2 text-right text-[10px] font-bold text-slate-500 uppercase tracking-wider">Saldo Nuevo</TableHead>
+                                                {isUserAdmin && <TableHead className="px-3 py-2 text-right text-[10px] font-bold text-slate-500 uppercase tracking-wider">Acción</TableHead>}
                                             </TableRow>
                                         </TableHeader>
-                                        <TableBody>
+                                        <TableBody className="divide-y divide-slate-100">
                                             {editingClient.historialPagos.slice().reverse().map((pago, index) => (
-                                                <TableRow key={`${pago.id}-${index}`}>
-                                                    <TableCell>{pago.fecha}</TableCell>
-                                                    <TableCell className="text-right font-medium text-green-600">${pago.monto.toLocaleString('en-US', { minimumFractionDigits: 2 })}</TableCell>
-                                                    <TableCell className="text-right">${pago.saldoAnterior.toLocaleString('en-US', { minimumFractionDigits: 2 })}</TableCell>
-                                                    <TableCell className="text-right">${pago.saldoNuevo.toLocaleString('en-US', { minimumFractionDigits: 2 })}</TableCell>
+                                                <TableRow key={`${pago.id}-${index}`} className="hover:bg-slate-50/50 transition-colors">
+                                                    <TableCell className="px-3 py-2 font-medium text-slate-600">{pago.fecha}</TableCell>
+                                                    <TableCell className="px-3 py-2 text-right font-bold text-emerald-600">${pago.monto.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                                                    <TableCell className="px-3 py-2 text-right text-slate-500">${pago.saldoAnterior.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                                                    <TableCell className="px-3 py-2 text-right text-slate-700 font-medium">${pago.saldoNuevo.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                                                     {isUserAdmin && (
-                                                        <TableCell className="text-right">
+                                                        <TableCell className="px-3 py-1.5 text-right">
                                                             <Button 
                                                                 variant="ghost" 
                                                                 size="icon" 
+                                                                className="h-6 w-6 hover:bg-rose-50 text-rose-500 hover:text-rose-600 rounded"
                                                                 onClick={() => {
                                                                     setPaymentToDelete(pago);
                                                                     setIsDeletePaymentDialogOpen(true);
                                                                 }}>
-                                                                <Trash2 className="h-4 w-4 text-destructive" />
+                                                                <Trash2 className="h-3.5 w-3.5" />
                                                             </Button>
                                                         </TableCell>
                                                     )}

@@ -4,48 +4,34 @@
 
 @layer base {
   :root {
-    --background: 240 10% 96.1%;
-    --foreground: 222.2 84% 4.9%;
+    --background: 210 40% 98%; /* Slate-50 base: #f8fafc */
+    --foreground: 222.2 84% 4.9%; /* Slate-950 text: #0f172a */
+    
     --card: 0 0% 100%;
     --card-foreground: 222.2 84% 4.9%;
+    
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
-    --primary: 240 64% 27%;
-    --primary-foreground: 210 40% 98%;
+    
+    --primary: 243 75% 59%; /* Indigo-600: #4f46e5 */
+    --primary-foreground: 0 0% 100%;
+    
     --secondary: 210 40% 96.1%;
     --secondary-foreground: 222.2 47.4% 11.2%;
+    
     --muted: 210 40% 96.1%;
     --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 16 100% 66%;
-    --accent-foreground: 0 0% 100%;
+    
+    --accent: 210 40% 96.1%; /* Slate-100 */
+    --accent-foreground: 222.2 47.4% 11.2%; /* Slate-900 */
+    
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
+    
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 240 64% 27%;
-    --radius: 0.5rem;
-  }
-
-  .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215.4 16.3% 56.9%;
-    --accent: 16 100% 66%;
-    --accent-foreground: 0 0% 100%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 16 100% 66%;
+    --ring: 243 75% 59%;
+    --radius: 0.5rem; /* Standard SaaS border-radius */
   }
 }
 
@@ -54,6 +40,64 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
+    background-color: #f8fafc;
+    color: hsl(var(--foreground));
+    font-family: var(--font-inter), sans-serif;
+    overflow-x: hidden;
   }
+}
+
+/* Custom Scrollbar for Liquid Glass */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.02);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.08);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.16);
+}
+
+/* Modern SaaS Panels and Cards */
+.glass-panel {
+  background: #ffffff;
+  border: 1px solid #e2e8f0; /* border-slate-200 */
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05); /* shadow-sm */
+}
+
+.glass-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0; /* border-slate-200 */
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05); /* shadow-sm */
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-card:hover {
+  border-color: #cbd5e1; /* border-slate-300 */
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05); /* shadow-md styled cleanly */
+}
+
+.glass-input {
+  background: #ffffff;
+  border: 1px solid #e2e8f0; /* border-slate-200 */
+  border-radius: 6px;
+  color: #0f172a;
+  transition: all 0.15s ease;
+}
+
+.glass-input::placeholder {
+  color: #94a3b8; /* slate-400 */
+}
+
+.glass-input:focus {
+  background: #ffffff;
+  border-color: hsl(var(--primary));
+  box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.15); /* primary indigo shadow ring */
+  outline: none;
 }

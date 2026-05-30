@@ -12,7 +12,7 @@ const plazaIcons = [Building, Store, Landmark, Warehouse, School, Factory, Castl
 
 export default function Sidebar() {
   const pathname = usePathname();
-  const { userPlazas, appName, currentUser } = useContext(AppContext);
+  const { userPlazas, appName, currentUser, logoUrl } = useContext(AppContext);
 
   const isUserAdmin = currentUser && 'username' in currentUser && !('plazas' in currentUser);
 
@@ -34,16 +34,29 @@ export default function Sidebar() {
   ];
 
   return (
-    <aside className="hidden w-64 flex-col border-r bg-primary-foreground/5 dark:bg-card md:flex">
-      <div className="flex h-16 items-center border-b px-6">
-        <Link href="/dashboard" className="flex items-center gap-2 font-semibold font-headline text-lg">
-          <Rocket className="h-7 w-7 text-accent" />
-          <span>{appName} - Cartera</span>
+    <aside className="hidden w-64 flex-col bg-white rounded-xl border border-slate-200 shadow-sm md:flex h-full overflow-hidden shrink-0">
+      <div className="flex h-16 items-center border-b border-slate-200 px-6">
+        <Link href="/dashboard" className="flex items-center gap-2 font-bold font-headline text-lg text-slate-800">
+          {logoUrl ? (
+            <img 
+              src={logoUrl} 
+              alt={appName} 
+              className="h-8 max-w-[80px] object-contain rounded-md border border-slate-100 bg-white p-0.5"
+              onError={(e) => {
+                (e.target as HTMLElement).style.display = 'none';
+              }}
+            />
+          ) : (
+            <div className="bg-primary p-1.5 rounded-lg text-white shadow-sm">
+              <Rocket className="h-4 w-4" />
+            </div>
+          )}
+          <span>{appName}</span>
         </Link>
       </div>
       <ScrollArea className="flex-1">
         <div className="p-4">
-          <p className="px-3 py-2 text-xs font-semibold text-muted-foreground tracking-wider">CARTERA</p>
+          <p className="px-3 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">CARTERA</p>
           <nav className="grid items-start gap-1 text-sm font-medium">
             {navLinks.map(({ href, label, icon: Icon }) => {
               const isActive =
@@ -55,11 +68,13 @@ export default function Sidebar() {
                   key={href}
                   href={href}
                   className={cn(
-                    "flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary",
-                    isActive && "bg-muted text-primary"
+                    "flex items-center gap-3 rounded-lg px-3 py-2 transition-all duration-205",
+                    isActive 
+                      ? "bg-indigo-50/70 text-primary font-semibold border-l-2 border-primary" 
+                      : "text-slate-500 hover:text-slate-900 hover:bg-slate-50"
                   )}
                 >
-                  <Icon className="h-4 w-4" />
+                  <Icon className={cn("h-4 w-4", isActive ? "text-primary" : "text-slate-400")} />
                   {label}
                 </Link>
               );
@@ -68,7 +83,7 @@ export default function Sidebar() {
 
           {isUserAdmin && (
             <>
-              <p className="px-3 py-2 mt-4 text-xs font-semibold text-muted-foreground tracking-wider">GESTIÓN</p>
+              <p className="px-3 py-2 mt-6 text-[10px] font-bold text-slate-400 uppercase tracking-widest">GESTIÓN</p>
               <nav className="grid items-start gap-1 text-sm font-medium">
                 {managementLinks.map(({ href, label, icon: Icon }) => {
                   const isActive = pathname.startsWith(href);
@@ -77,11 +92,13 @@ export default function Sidebar() {
                       key={href}
                       href={href}
                       className={cn(
-                        "flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary",
-                        isActive && "bg-muted text-primary"
+                        "flex items-center gap-3 rounded-lg px-3 py-2 transition-all duration-205",
+                        isActive 
+                          ? "bg-indigo-50/70 text-primary font-semibold border-l-2 border-primary" 
+                          : "text-slate-500 hover:text-slate-900 hover:bg-slate-50"
                       )}
                     >
-                      <Icon className="h-4 w-4" />
+                      <Icon className={cn("h-4 w-4", isActive ? "text-primary" : "text-slate-400")} />
                       {label}
                     </Link>
                   );

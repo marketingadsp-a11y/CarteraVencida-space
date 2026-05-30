@@ -2,7 +2,7 @@ import { Client } from './constants';
 
 export const mockClients: Client[] = [
   {
-    id: 1,
+    id: '1',
     plaza: 'AUTLAN PREPA',
     fecha: '15/05/2024',
     nombre: 'Juan Perez',
@@ -17,7 +17,7 @@ export const mockClients: Client[] = [
     recuperado: false,
   },
   {
-    id: 2,
+    id: '2',
     plaza: 'CREDIMEX',
     fecha: '10/05/2024',
     nombre: 'Ana Garcia',
@@ -32,7 +32,7 @@ export const mockClients: Client[] = [
     recuperado: true,
   },
   {
-    id: 3,
+    id: '3',
     plaza: 'UNION DE TULA',
     fecha: '01/04/2024',
     nombre: 'Carlos Sanchez',
@@ -47,7 +47,7 @@ export const mockClients: Client[] = [
     recuperado: false,
   },
     {
-    id: 4,
+    id: '4',
     plaza: 'TECOLOTLAN',
     fecha: '20/05/2024',
     nombre: 'Laura Hernandez',
@@ -62,7 +62,7 @@ export const mockClients: Client[] = [
     recuperado: false,
   },
   {
-    id: 5,
+    id: '5',
     plaza: 'OFICINA CENTRO',
     fecha: '05/03/2024',
     nombre: 'Roberto Diaz',
@@ -77,7 +77,7 @@ export const mockClients: Client[] = [
     recuperado: true,
   },
   {
-    id: 6,
+    id: '6',
     plaza: 'RUTA AARON',
     fecha: '18/05/2024',
     nombre: 'Patricia Morales',
@@ -92,7 +92,7 @@ export const mockClients: Client[] = [
     recuperado: false,
   },
   {
-    id: 7,
+    id: '7',
     plaza: 'AUTLAN PREPA',
     fecha: '12/02/2024',
     nombre: 'Sofia Castillo',
@@ -107,7 +107,7 @@ export const mockClients: Client[] = [
     recuperado: false,
   },
   {
-    id: 8,
+    id: '8',
     plaza: 'CREDIMEX',
     fecha: '25/04/2024',
     nombre: 'Mario Mendoza',
